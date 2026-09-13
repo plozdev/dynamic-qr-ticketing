@@ -1,0 +1,70 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: dynamic-qr-ticketing
+
+  # Database Connection & Connection Pool (HikariCP)
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ticketing_db}
+    username: ${SPRING_DATASOURCE_USERNAME:ticketing_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:ticketing_secret}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: TicketingHikariPool
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
+  # JPA & Hibernate Configurations
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+
+  # Database Migration with Flyway
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+
+  # Spring Modulith Event Publication & Outbox
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: true
+      completion-mode: archive
+
+# Actuator & Observability
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, modulith
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
+# Business & Cryptographic Configurations for Dynamic QR
+app:
+  qr:
+    rotation-interval-seconds: 30
+    drift-tolerance-windows: 1
+    anti-replay-ttl-seconds: 60

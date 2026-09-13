@@ -1,0 +1,50 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ticketing-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ticketing_db
+      POSTGRES_USER: ticketing_user
+      POSTGRES_PASSWORD: ticketing_secret
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_ticketing_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketing_user -d ticketing_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ticketing-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ticketing-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_ticketing_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - ticketing-network
+
+volumes:
+  postgres_ticketing_data:
+    name: ticketing_postgres_data
+  redis_ticketing_data:
+    name: ticketing_redis_data
+
+networks:
+  ticketing-network:
+    name: ticketing_network
+    driver: bridge
