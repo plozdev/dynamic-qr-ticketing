@@ -2,8 +2,13 @@ package com.ticketing.platform.ticketissuance.infrastructure.persistence.adapter
 
 import com.ticketing.platform.ticketissuance.domain.model.Ticket;
 import com.ticketing.platform.ticketissuance.domain.model.TicketId;
+import com.ticketing.platform.ticketissuance.domain.model.TicketSecret;
 import com.ticketing.platform.ticketissuance.domain.repository.TicketRepository;
+import com.ticketing.platform.ticketissuance.infrastructure.persistence.entity.TicketJpaEntity;
 import com.ticketing.platform.ticketissuance.infrastructure.persistence.repository.SpringDataTicketRepository;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
@@ -12,23 +17,46 @@ import java.util.Optional;
  * Khung sườn Adapter hiện thực TicketRepository Port bằng Spring Data JPA.
  */
 @Component
+@RequiredArgsConstructor 
 public class TicketRepositoryAdapter implements TicketRepository {
 
     private final SpringDataTicketRepository jpaRepository;
 
-    public TicketRepositoryAdapter(SpringDataTicketRepository jpaRepository) {
-        this.jpaRepository = jpaRepository;
-    }
-
     @Override
-    public Ticket save(Ticket ticket) {
-        // TODO: Chuyển Ticket domain model sang TicketJpaEntity và lưu vào DB
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai save()");
+    public void save(Ticket ticket) {
+        jpaRepository.save(toEntity(ticket));
     }
 
     @Override
     public Optional<Ticket> findById(TicketId id) {
-        // TODO: Tìm kiếm TicketJpaEntity theo id và map sang Ticket domain model
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai findById()");
+        return jpaRepository.findById(id.value()).map(this::toDomain);
+    }
+
+    private TicketJpaEntity toEntity(Ticket ticket) {
+        return TicketJpaEntity.builder()
+                .id(ticket.getId().value())
+                .eventId(ticket.getEventId())
+                .userId(ticket.getUserId())
+                .categoryName(ticket.getCategoryName())
+                .secretKey(ticket.getSecret().base64Key())
+                .status(ticket.getStatus())
+                .issuedAt(ticket.getIssuedAt())
+                .usedAt(ticket.getUsedAt())
+                .usedAtGateId(ticket.getUsedAtGateId())
+                .build();
+    }
+    
+    private Ticket toDomain(TicketJpaEntity t) {
+        return new Ticket(
+                TicketId.of(t.getId()),
+                t.getEventId(),
+                t.getUserId(),
+                t.getCategoryName(),
+                TicketSecret.of(t.getSecretKey()),
+                t.getStatus(),
+                t.getIssuedAt(),
+                t.getUsedAt(),
+                t.getUsedAtGateId()
+        );
     }
 }

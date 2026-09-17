@@ -1,6 +1,7 @@
 package com.ticketing.platform.ticketissuance.domain.model;
 
 import com.ticketing.platform.shared.domain.AggregateRoot;
+import com.ticketing.platform.shared.exception.DomainException;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -36,20 +37,23 @@ public class Ticket implements AggregateRoot<TicketId> {
     }
 
     public static Ticket issue(UUID eventId, UUID userId, String categoryName) {
-        // TODO: Khởi tạo vé mới với secret ngẫu nhiên bảo mật và trạng thái ACTIVE
         return new Ticket(TicketId.generate(), eventId, userId, categoryName,
                 TicketSecret.generate(), TicketStatus.ACTIVE, Instant.now(), null, null);
     }
 
     public void markAsUsed(String gateId) {
-        // TODO: Kiểm tra điều kiện: chỉ vé ở trạng thái ACTIVE mới được check-in, sau đó chuyển sang USED
+        if (this.status != TicketStatus.ACTIVE) {
+            throw new DomainException("Ticket cannot be marked as used because it is not active: " + this.status);
+        }
         this.status = TicketStatus.USED;
         this.usedAt = Instant.now();
         this.usedAtGateId = gateId;
     }
 
     public void revoke() {
-        // TODO: Kiểm tra điều kiện: vé đã USED thì không thể thu hồi
+        if (this.status == TicketStatus.USED) {
+            throw new DomainException("Cannot revoke a ticket that has already been used");
+        }
         this.status = TicketStatus.REVOKED;
     }
 

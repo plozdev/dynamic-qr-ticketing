@@ -2,9 +2,15 @@ package com.ticketing.platform.ticketissuance.api.web;
 
 import com.ticketing.platform.ticketissuance.api.dto.DynamicQrResponse;
 import com.ticketing.platform.ticketissuance.api.dto.IssueTicketRequest;
+import com.ticketing.platform.ticketissuance.api.dto.TicketSyncResponse;
+import com.ticketing.platform.ticketissuance.application.dto.DynamicQrDto;
+import com.ticketing.platform.ticketissuance.application.dto.TicketSyncDto;
 import com.ticketing.platform.ticketissuance.application.port.in.GenerateDynamicQrUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.IssueTicketUseCase;
+import com.ticketing.platform.ticketissuance.application.port.in.SyncTicketUseCase;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,43 +24,47 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Khung sườn REST Controller cho Ticket Issuance.
+ * REST Controller cho Ticket Issuance.
  */
 @RestController
 @RequestMapping("/api/v1/tickets")
+@RequiredArgsConstructor 
 public class TicketIssuanceController {
 
     private final IssueTicketUseCase issueTicketUseCase;
     private final GenerateDynamicQrUseCase generateDynamicQrUseCase;
-
-    public TicketIssuanceController(IssueTicketUseCase issueTicketUseCase,
-                                    GenerateDynamicQrUseCase generateDynamicQrUseCase) {
-        this.issueTicketUseCase = issueTicketUseCase;
-        this.generateDynamicQrUseCase = generateDynamicQrUseCase;
-    }
+    private final SyncTicketUseCase syncTicketUseCase;
 
     @PostMapping("/issue")
     public ResponseEntity<Map<String, Object>> issueTicket(@Valid @RequestBody IssueTicketRequest request) {
-        // TODO: Chuyển request sang IssueTicketCommand, gọi issueTicketUseCase và trả về 201 Created
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai endpoint POST /api/v1/tickets/issue");
+        UUID ticketId = issueTicketUseCase.issueTicket(request.toCommand());
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("ticketId", ticketId));
     }
 
     @GetMapping("/{id}/dynamic-qr")
     public ResponseEntity<DynamicQrResponse> getDynamicQr(
             @PathVariable UUID id,
             @RequestHeader("X-User-Id") UUID requesterUserId) {
-        // TODO: Phương án phụ (Web Client Fallback): Gọi generateDynamicQrUseCase và trả về DynamicQrResponse
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai endpoint GET /api/v1/tickets/{id}/dynamic-qr");
+        DynamicQrDto dto = generateDynamicQrUseCase.generateDynamicQr(id, requesterUserId);
+        return ResponseEntity.ok(new DynamicQrResponse(
+                dto.ticketId(),
+                dto.dynamicPayload(),
+                dto.expiresAtEpochSeconds(),
+                dto.refreshIntervalSeconds()
+        ));
     }
 
     @GetMapping("/{id}/sync")
-    public ResponseEntity<com.ticketing.platform.ticketissuance.api.dto.TicketSyncResponse> syncTicket(
+    public ResponseEntity<TicketSyncResponse> syncTicket(
             @PathVariable UUID id,
             @RequestHeader("X-User-Id") UUID requesterUserId) {
-        // TODO: Key Provisioning cho Mobile (Android Compose + C++ NDK):
-        // 1. Kiểm tra requesterUserId có đúng là chủ sở hữu vé id không
-        // 2. Trả về ticketId, eventId, categoryName, secretKeyBase64, và serverTimeEpochSeconds
-        // 3. Mobile sẽ lưu secretKey an toàn và tự sinh Dynamic QR offline (Zero network call mỗi 30s)
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai endpoint GET /api/v1/tickets/{id}/sync");
+        TicketSyncDto dto = syncTicketUseCase.syncTicket(id, requesterUserId);
+        return ResponseEntity.ok(new TicketSyncResponse(
+                dto.ticketId(),
+                dto.eventId(),
+                dto.categoryName(),
+                dto.secretKeyBase64(),
+                dto.serverTimeEpochSeconds()
+        ));
     }
 }
