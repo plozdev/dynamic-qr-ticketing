@@ -68,3 +68,13 @@ app:
     rotation-interval-seconds: 30
     drift-tolerance-windows: 1
     anti-replay-ttl-seconds: 60
+
+# OpenAPI / Swagger UI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
