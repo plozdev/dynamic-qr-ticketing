@@ -9,4 +9,13 @@ public record GateValidationResultDto(
         String status,
         String message,
         Instant validatedAt
-) {}
+) {
+    public static GateValidationResultDto granted(UUID ticketId, String message) {
+        return new GateValidationResultDto(ticketId, true, "GRANTED", message, Instant.now());
+    }
+
+    public static GateValidationResultDto denied(UUID ticketId, String status, String message) {
+        return new GateValidationResultDto(ticketId, false, status, message, Instant.now());
+    }
+}
+

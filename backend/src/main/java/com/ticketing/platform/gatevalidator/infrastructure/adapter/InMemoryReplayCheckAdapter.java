@@ -4,20 +4,29 @@ import com.ticketing.platform.gatevalidator.application.port.out.ReplayCheckPort
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Khung sườn Adapter kiểm tra chống Replay Attack (Mã QR bị quét lại trong cửa sổ thời gian).
- * Bạn tự triển khai cơ chế lưu vết (ConcurrentHashMap hoặc Redis) tại đây.
  */
 @Component
 public class InMemoryReplayCheckAdapter implements ReplayCheckPort {
 
+    // Lưu trữ bộ nhớ đệm: token -> thời điểm hết hạn (Instant)
+    private final ConcurrentHashMap<String, Instant> cache = new ConcurrentHashMap<>();
+
     @Override
     public boolean markIfSeen(String tokenFingerprint, Duration ttl) {
-        // TODO: Bạn tự triển khai:
-        // Lưu token vào bộ nhớ tạm kèm thời gian hết hạn TTL.
-        // Trả về true nếu token ĐÃ TỒN TẠI (phát hiện replay attack).
-        // Trả về false nếu token MỚI (chưa từng thấy trước đó) và lưu lại.
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai markIfSeen()");
+        Instant now = Instant.now();
+
+        cache.entrySet().removeIf(entry -> entry.getValue().isBefore(now));
+        
+        Instant expiresAt = cache.get(tokenFingerprint);
+        if (expiresAt != null && expiresAt.isAfter(now)) {
+            return true; 
+        }
+        cache.put(tokenFingerprint, now.plus(ttl));
+        return false;
     }
 }
