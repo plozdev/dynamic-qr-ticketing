@@ -48,8 +48,8 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
                 command.endDateTime()
         );
 
-        Event savedEvent = eventRepository.save(event);
-        return toResponse(savedEvent);
+        eventRepository.save(event);
+        return toResponse(event);
     }
 
     @Override

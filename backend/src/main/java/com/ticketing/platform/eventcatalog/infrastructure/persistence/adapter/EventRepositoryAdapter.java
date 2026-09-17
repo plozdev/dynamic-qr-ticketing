@@ -24,10 +24,8 @@ public class EventRepositoryAdapter implements EventRepository {
     private final SpringDataEventRepository jpaRepository;
 
     @Override
-    public Event save(Event event) {
-        EventJpaEntity entity = toEntity(event);
-        EventJpaEntity savedEntity = jpaRepository.save(entity);
-        return toDomain(savedEntity);
+    public void save(Event event) {
+        jpaRepository.save(toEntity(event));
     }
 
     @Override
@@ -41,18 +39,17 @@ public class EventRepositoryAdapter implements EventRepository {
     }
 
     private EventJpaEntity toEntity(Event event) {
-        EventJpaEntity entity = new EventJpaEntity();
-        entity.setId(event.getId());
-        entity.setName(event.getName());
-        entity.setDescription(event.getDescription());
-        if (event.getVenue() != null) {
-            entity.setVenueName(event.getVenue().name());
-            entity.setVenueAddress(event.getVenue().address());
-        }
-        entity.setStartDateTime(event.getStartDateTime());
-        entity.setEndDateTime(event.getEndDateTime());
-        entity.setStatus(event.getStatus());
-        return entity;
+        Venue v = event.getVenue();
+        return EventJpaEntity.builder()
+                    .id(event.getId())
+                    .name(event.getName())
+                    .description(event.getDescription())
+                    .venueName(v != null ? v.name() : null)
+                    .venueAddress(v != null ? v.address() : null)
+                    .startDateTime(event.getStartDateTime())
+                    .endDateTime(event.getEndDateTime())
+                    .status(event.getStatus())
+                    .build();
     }
 
     private Event toDomain(EventJpaEntity entity) {
