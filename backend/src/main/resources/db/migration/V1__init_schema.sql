@@ -60,3 +60,16 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_event_type ON audit_logs(event_type);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_recorded_at ON audit_logs(recorded_at DESC);
+
+-- 5. SPRING MODULITH EVENT PUBLICATION REGISTRY (OUTBOX TABLE)
+CREATE TABLE IF NOT EXISTS event_publication (
+    id UUID NOT NULL PRIMARY KEY,
+    listener_id VARCHAR(512) NOT NULL,
+    event_type VARCHAR(512) NOT NULL,
+    serialized_event VARCHAR(4000) NOT NULL,
+    publication_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    completion_date TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_event_publication_by_completion_date ON event_publication(completion_date);
+
