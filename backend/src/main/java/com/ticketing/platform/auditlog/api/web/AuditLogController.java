@@ -1,6 +1,7 @@
 package com.ticketing.platform.auditlog.api.web;
 
 import com.ticketing.platform.auditlog.api.dto.AuditLogResponse;
+import com.ticketing.platform.auditlog.application.dto.AuditLogDto;
 import com.ticketing.platform.auditlog.application.port.in.RecordAuditLogUseCase;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * Khung sườn REST Controller cho Audit Log.
+ * REST Controller cho Audit Log.
  */
 @RestController
 @RequestMapping("/api/v1/audit-logs")
@@ -26,7 +27,19 @@ public class AuditLogController {
     @GetMapping
     public ResponseEntity<List<AuditLogResponse>> getRecentAuditLogs(
             @RequestParam(defaultValue = "50") int limit) {
-        // TODO: Gọi recordAuditLogUseCase.getRecentLogs(limit) và trả về HTTP 200 OK
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai endpoint GET /api/v1/audit-logs");
+        int queryLimit = (limit > 0 && limit <= 200) ? limit : 50;
+        List<AuditLogDto> dtos = recordAuditLogUseCase.getRecentLogs(queryLimit);
+        List<AuditLogResponse> responses = dtos.stream()
+                .map(dto -> new AuditLogResponse(
+                        dto.id(),
+                        dto.eventType(),
+                        dto.sourceModule(),
+                        dto.principal(),
+                        dto.details(),
+                        dto.recordedAt()
+                ))
+                .toList();
+        return ResponseEntity.ok(responses);
     }
 }
+
