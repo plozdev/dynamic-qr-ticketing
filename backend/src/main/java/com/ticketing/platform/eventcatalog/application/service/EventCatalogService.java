@@ -5,6 +5,7 @@ import com.ticketing.platform.eventcatalog.application.dto.CreateEventCommand;
 import com.ticketing.platform.eventcatalog.application.dto.EventResponse;
 import com.ticketing.platform.eventcatalog.application.port.in.CreateEventUseCase;
 import com.ticketing.platform.eventcatalog.application.port.in.GetEventQuery;
+import com.ticketing.platform.eventcatalog.EventPublishedIntegrationEvent;
 import com.ticketing.platform.eventcatalog.domain.repository.EventRepository;
 
 import com.ticketing.platform.eventcatalog.domain.model.Event;
@@ -48,7 +49,9 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
                 command.endDateTime()
         );
 
+        event.publish();
         eventRepository.save(event);
+        eventPublisher.publishEvent(new EventPublishedIntegrationEvent(event.getId(), event.getName(), java.time.Instant.now()));
         return toResponse(event);
     }
 
