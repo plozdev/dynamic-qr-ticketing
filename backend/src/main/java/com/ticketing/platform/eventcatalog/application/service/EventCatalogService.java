@@ -6,43 +6,58 @@ import com.ticketing.platform.eventcatalog.application.dto.EventResponse;
 import com.ticketing.platform.eventcatalog.application.port.in.CreateEventUseCase;
 import com.ticketing.platform.eventcatalog.application.port.in.GetEventQuery;
 import com.ticketing.platform.eventcatalog.domain.repository.EventRepository;
+
+import com.ticketing.platform.eventcatalog.domain.model.Event;
+import com.ticketing.platform.eventcatalog.domain.model.EventStatus;
+import com.ticketing.platform.eventcatalog.domain.model.Venue;
+import com.ticketing.platform.shared.exception.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.UUID;
 
 /**
  * Khung sườn Application Service cho Event Catalog.
  * Hiện thực Use Cases và Boundary Interface (SPI) để module khác giao tiếp.
- * Bạn tự hoàn thiện logic nghiệp vụ cụ thể.
  */
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class EventCatalogService implements CreateEventUseCase, GetEventQuery, EventCatalogExportedService {
 
     private final EventRepository eventRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    public EventCatalogService(EventRepository eventRepository, ApplicationEventPublisher eventPublisher) {
-        this.eventRepository = eventRepository;
-        this.eventPublisher = eventPublisher;
-    }
-
     @Override
     public EventResponse createEvent(CreateEventCommand command) {
-        // TODO: Bạn tự triển khai:
-        // 1. Tạo Venue và Event aggregate từ command
-        // 2. Lưu thông qua eventRepository
-        // 3. Chuyển đổi sang EventResponse
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai createEvent()");
+        Venue venue = new Venue(
+                UUID.randomUUID(),
+                command.venueName(),
+                command.venueAddress(),
+                command.venueGates() != null ? command.venueGates() : Collections.emptyList()
+        );
+
+        Event event = Event.create(
+                command.name(),
+                command.description(),
+                venue,
+                command.startDateTime(),
+                command.endDateTime()
+        );
+
+        Event savedEvent = eventRepository.save(event);
+        return toResponse(savedEvent);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EventResponse getEventById(UUID eventId) {
-        // TODO: Bạn tự triển khai: Truy vấn event qua eventRepository, ném EntityNotFoundException nếu không thấy
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai getEventById()");
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event", eventId));
+        return toResponse(event);
     }
 
     // --- Boundary Service (EventCatalogExportedService implementation) ---
@@ -50,14 +65,29 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
     @Override
     @Transactional(readOnly = true)
     public boolean isEventActive(UUID eventId) {
-        // TODO: Bạn tự triển khai: Kiểm tra trạng thái event có PUBLISHED không cho module ticket-issuance gọi sang
-        return false;
+        return eventRepository.findById(eventId)
+                .map(event -> event.getStatus() == EventStatus.PUBLISHED)
+                .orElse(false);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EventSummaryDto getEventSummary(UUID eventId) {
-        // TODO: Bạn tự triển khai: Lấy tóm tắt thông tin event cho module khác gọi
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai getEventSummary()");
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event", eventId));
+        String venueName = event.getVenue() != null ? event.getVenue().name() : null;
+        return new EventSummaryDto(event.getId(), event.getName(), venueName, event.getStatus().name());
+    }
+
+    private EventResponse toResponse(Event event) {
+        return new EventResponse(
+                event.getId(),
+                event.getName(),
+                event.getDescription(),
+                event.getVenue() != null ? event.getVenue().name() : null,
+                event.getStartDateTime(),
+                event.getEndDateTime(),
+                event.getStatus().name()
+        );
     }
 }

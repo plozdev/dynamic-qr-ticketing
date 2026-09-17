@@ -1,6 +1,7 @@
 package com.ticketing.platform.eventcatalog.domain.model;
 
 import com.ticketing.platform.shared.domain.AggregateRoot;
+import com.ticketing.platform.shared.exception.DomainException;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -38,12 +39,14 @@ public class Event implements AggregateRoot<UUID> {
 
     public static Event create(String name, String description, Venue venue,
                                Instant startDateTime, Instant endDateTime) {
-        // TODO: Kiểm tra quy tắc nghiệp vụ: startDateTime phải trước endDateTime
+        if (startDateTime.isAfter(endDateTime)) {
+            throw new DomainException("Event date mút precede end date");
+        }
         return new Event(UUID.randomUUID(), name, description, venue, startDateTime, endDateTime, EventStatus.DRAFT, new ArrayList<>());
     }
 
     public void publish() {
-        // TODO: Kiểm tra điều kiện xuất bản (chỉ sự kiện ở trạng thái DRAFT mới được xuất bản)
+        if (status != EventStatus.DRAFT) { throw new DomainException("Only DRAFT events can be published"); }
         this.status = EventStatus.PUBLISHED;
     }
 

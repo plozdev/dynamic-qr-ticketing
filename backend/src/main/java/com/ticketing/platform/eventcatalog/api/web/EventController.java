@@ -5,6 +5,9 @@ import com.ticketing.platform.eventcatalog.application.dto.EventResponse;
 import com.ticketing.platform.eventcatalog.application.port.in.CreateEventUseCase;
 import com.ticketing.platform.eventcatalog.application.port.in.GetEventQuery;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,25 +23,21 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1/events")
+@RequiredArgsConstructor 
 public class EventController {
 
     private final CreateEventUseCase createEventUseCase;
     private final GetEventQuery getEventQuery;
 
-    public EventController(CreateEventUseCase createEventUseCase, GetEventQuery getEventQuery) {
-        this.createEventUseCase = createEventUseCase;
-        this.getEventQuery = getEventQuery;
-    }
-
     @PostMapping
     public ResponseEntity<EventResponse> createEvent(@Valid @RequestBody CreateEventRequest request) {
-        // TODO: Chuyển CreateEventRequest sang CreateEventCommand, gọi createEventUseCase và trả về 201 Created
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai endpoint POST /api/v1/events");
+        EventResponse res = createEventUseCase.createEvent(request.toCommand());
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<EventResponse> getEventById(@PathVariable UUID id) {
-        // TODO: Gọi getEventQuery và trả về 200 OK
-        throw new UnsupportedOperationException("TODO: Bạn tự triển khai endpoint GET /api/v1/events/{id}");
+        return ResponseEntity.status(HttpStatus.OK)
+                            .body(getEventQuery.getEventById(id));
     }
 }

@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.List;
 
+import com.ticketing.platform.eventcatalog.application.dto.CreateEventCommand;
+
 public record CreateEventRequest(
         @NotBlank(message = "Event name is required")
         String name,
@@ -24,4 +26,16 @@ public record CreateEventRequest(
 
         @NotNull(message = "End date time is required")
         Instant endDateTime
-) {}
+) {
+        public CreateEventCommand toCommand() {
+                return new CreateEventCommand(
+                        this.name,
+                        this.description,
+                        this.venueName,
+                        this.venueAddress,
+                        this.venueGates,
+                        this.startDateTime,
+                        this.endDateTime
+                );
+        }
+}
