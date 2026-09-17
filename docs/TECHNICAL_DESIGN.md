@@ -28,10 +28,12 @@ Hệ thống được thiết kế theo mô hình Monorepo đồng nhất:
 dynamic-qr-ticketing/
 ├── backend/            # Spring Boot 3 (Modular Monolith)
 ├── mobile/             # Android Native (Kotlin + Jetpack Compose + C++ NDK)
+├── frontend/           # Web Frontend (React + Vite + Tailwind - Real-time Operations Dashboard)
 ├── docs/               # Tài liệu thiết kế kỹ thuật
-│   ├── TECHNICAL_DESIGN.md   # Kiến trúc tổng thể hệ thống
-│   ├── BACKEND_DESIGN.md     # Đặc tả chi tiết triển khai Backend
-│   └── MOBILE_DESIGN.md      # Đặc tả chi tiết triển khai Mobile (Client & Scanner)
+│   ├── TECHNICAL_DESIGN.md          # Kiến trúc tổng thể hệ thống
+│   ├── BACKEND_DEVELOPMENT_GUIDE.md # Đặc tả chi tiết triển khai Backend
+│   ├── MOBILE_TECHNICAL_DESIGN.md   # Đặc tả chi tiết triển khai Mobile
+│   └── FRONTEND_DEVELOPMENT_GUIDE.md# Đặc tả triển khai Web Frontend Dashboard
 └── docker-compose.yml  # Hạ tầng cơ sở dữ liệu (PostgreSQL, Redis)
 ```
 
@@ -44,8 +46,12 @@ flowchart TD
         ScannerApp["Mobile Scanner App\n(Staff / Turnstile - CameraX / ML Kit)"]
     end
 
+    subgraph Web Frontend
+        AdminWeb["Web Operations Dashboard\n(React + Vite - Real-time Gate Monitor)"]
+    end
+
     subgraph Backend Platform ["Backend Platform (Spring Boot Modular Monolith)"]
-        EventCatalog["eventcatalog"]
+        EventCatalog["eventcatalog\n(Swagger / OpenAPI UI)"]
         TicketIssuance["ticketissuance"]
         GateValidator["gatevalidator"]
         AuditLog["auditlog"]
@@ -62,6 +68,8 @@ flowchart TD
     ScannerApp -->|"4a. Chế độ Online: Xác thực trực tiếp (<50ms)"| GateValidator
     ScannerApp -.->|"4b. Chế độ Offline: Xác thực chữ ký/TOTP cục bộ"| ScannerApp
     ScannerApp -->|"5. Đồng bộ log soát vé về máy chủ (Batch Sync)"| GateValidator
+    GateValidator -->|"6. Bắn sự kiện Check-in (SSE/WebSocket/REST)"| AdminWeb
+    AdminWeb -->|"Quản lý & Giám sát sự kiện"| EventCatalog
 
     TicketIssuance --> Postgres
     GateValidator --> RedisCache
