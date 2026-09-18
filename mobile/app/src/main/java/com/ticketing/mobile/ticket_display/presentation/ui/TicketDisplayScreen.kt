@@ -81,11 +81,6 @@ import com.ticketing.mobile.ui.theme.SurfaceContainerLow
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 
-/**
- * CỬA SỔ TRƯỢT LÊN / POPUP MODAL QR:
- * Hiển thị cửa sổ pop up nổi trượt từ đáy màn hình lên, với nền mờ phía sau.
- * Bên trong chỉ tập trung hiển thị mã QR xoay vòng liên tục và một số thông tin cơ bản cần thiết để qua cổng.
- */
 @Composable
 fun TicketQrSlideUpModal(
     ticketId: String,

@@ -30,15 +30,6 @@ class TicketRepositoryImpl(
 
     /**
      * Lấy thông tin vé với chiến lược Offline-First Cache.
-     * 
-     * Quy trình:
-     * - Bước 1: Kiểm tra trong bộ nhớ đệm cục bộ qua localDataSource.getCachedTicket(ticketId).
-     * - Bước 2: Nếu đã có dữ liệu cache -> Dùng TicketMapper.toDomain(cached) và trả về Result.success ngay (Zero Network Latency).
-     * - Bước 3: Nếu chưa có cache -> Gọi remoteDataSource.fetchTicketById(ticketId) lên Spring Boot.
-     * - Bước 4: Khi remote trả về TicketDto thành công (kèm secretKey):
-     *   + Lưu vào localDataSource.saveTicket(dto) để sử dụng offline lần sau.
-     *   + Dùng TicketMapper.toDomain(dto) chuyển sang entity và trả về Result.success.
-     * - Bước 5: Nếu remote thất bại và không có cache -> Trả về Result.failure(exception).
      */
     override suspend fun getTicket(ticketId: String): Result<Ticket> {
         val cached = localDataSource.getCachedTicket(ticketId)
@@ -62,14 +53,6 @@ class TicketRepositoryImpl(
 
     /**
      * Sinh một mã Dynamic QR đơn lẻ tại thời điểm hiện tại.
-     * 
-     * Quy trình:
-     * - Bước 1: Lấy secretKey của vé từ localDataSource.getSecretKey(ticketId). Nếu null -> Trả về Result.failure.
-     * - Bước 2: Lấy mốc thời gian hiện tại: val currentSec = System.currentTimeMillis() / 1000.
-     * - Bước 3: Tính toán chu kỳ thời gian (timeWindow = currentSec / 30) và thời điểm hết hạn (expiresAt = (timeWindow + 1) * 30).
-     * - Bước 4: Gọi cryptoEngine.generateToken(ticketId, secretKey, currentSec, 30).
-     * - Bước 5: Tạo payload chuỗi theo định dạng chuẩn: "TICKETING:$ticketId:$expiresAt:${cryptoToken.tokenValue}".
-     * - Bước 6: Trả về DynamicQrData với payload, expiresAt và remainingSeconds.
      */
     override suspend fun getDynamicQr(ticketId: String): Result<DynamicQrData> {
         val secretKey = localDataSource.getSecretKey(ticketId)
@@ -95,16 +78,6 @@ class TicketRepositoryImpl(
 
     /**
      * Tạo luồng Flow đếm ngược thời gian thực và tự động tạo mã QR mới sau mỗi 30 giây.
-     * 
-     * Quy trình:
-     * - Bước 1: Lấy secretKey từ localDataSource.
-     * - Bước 2: Chạy vòng lặp while (currentCoroutineContext().isActive).
-     * - Bước 3: Trong mỗi vòng lặp:
-     *   + Tính currentEpochSeconds, timeWindow, expiresAt, remainingSeconds.
-     *   + Gọi cryptoEngine.generateToken() để lấy dynamic token mới nhất.
-     *   + Đóng gói chuỗi "TICKETING:$ticketId:$expiresAt:${token.tokenValue}".
-     *   + emit(DynamicQrData(...)) ra cho UI.
-     *   + delay(1000L) (đợi 1 giây để đếm ngược nhịp nhàng).
      */
     override fun observeDynamicQr(ticketId: String): Flow<DynamicQrData> = flow {
         val secretKey = localDataSource.getSecretKey(ticketId)

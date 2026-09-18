@@ -6,10 +6,6 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * UseCase quản lý nghiệp vụ sinh mã Dynamic QR và luồng đếm ngược thời gian thực.
- * 
- * Vai trò:
- * - Cung cấp hàm lấy nhanh 1 mã QR tại thời điểm hiện tại (`fetchCurrentQr`).
- * - Cung cấp luồng Flow liên tục phát dữ liệu QR mới và số giây đếm ngược mỗi giây (`observeQrStream`).
  */
 class GenerateDynamicQrUseCase(
     private val repository: ITicketRepository

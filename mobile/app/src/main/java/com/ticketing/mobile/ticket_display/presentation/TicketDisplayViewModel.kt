@@ -13,12 +13,6 @@ import kotlinx.coroutines.launch
 
 /**
  * ViewModel quản lý màn hình Hiển thị vé (TicketDisplayScreen) theo mô hình MVI.
- * 
- * Lớp này chịu trách nhiệm:
- * 1. Tiếp nhận các hành động từ UI (TicketDisplayIntent) trong hàm handleIntent.
- * 2. Cập nhật trạng thái duy nhất bất biến (TicketDisplayState) cho Composable render.
- * 3. Bắn các sự kiện một lần (TicketDisplayEffect) như Toast thông báo, lỗi, hay điều chỉnh độ sáng màn hình.
- * 4. Quản lý Coroutine Job đếm ngược mã QR để tự động hủy khi người dùng thoát màn hình.
  */
 class TicketDisplayViewModel(
     private val getTicketDetailUseCase: GetTicketDetailUseCase,
