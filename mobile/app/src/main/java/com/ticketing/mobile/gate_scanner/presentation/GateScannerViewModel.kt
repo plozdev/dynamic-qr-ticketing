@@ -1,13 +1,24 @@
 package com.ticketing.mobile.gate_scanner.presentation
 
+import androidx.lifecycle.viewModelScope
 import com.ticketing.mobile.core_mvi.BaseViewModel
+import com.ticketing.mobile.gate_scanner.domain.model.GateAccessStatus
+import com.ticketing.mobile.gate_scanner.domain.model.ScanResult
 import com.ticketing.mobile.gate_scanner.domain.usecase.ValidateScannedTicketUseCase
 import com.ticketing.mobile.gate_scanner.presentation.contract.GateScannerEffect
 import com.ticketing.mobile.gate_scanner.presentation.contract.GateScannerIntent
 import com.ticketing.mobile.gate_scanner.presentation.contract.GateScannerState
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
- * Khung sườn ViewModel cho màn hình quét vé cổng soát theo mô hình MVI.
+ * ViewModel quản lý màn hình máy quét vé tại cổng (GateScannerScreen) theo kiến trúc MVI.
+ * 
+ * Mục đích:
+ * 1. Nhận chuỗi quét từ Camera ML Kit / CameraX trong hàm handleIntent.
+ * 2. Debounce: Ngăn chặn quét trùng lặp liên tục khi camera bắt nhiều frame cùng một mã QR.
+ * 3. Cập nhật State phản hồi màu sắc UI: Xanh lá cây (Granted), Đỏ (Denied).
+ * 4. Phát Side Effects: Phát âm thanh Beep (thành công/thất bại), rung máy haptic, và tự động mở lại camera sau 2 giây cooldown.
  */
 class GateScannerViewModel(
     private val validateScannedTicketUseCase: ValidateScannedTicketUseCase
@@ -18,21 +29,53 @@ class GateScannerViewModel(
     override fun handleIntent(intent: GateScannerIntent) {
         when (intent) {
             is GateScannerIntent.QrCodeScanned -> {
-                // TODO: [Giai đoạn 4] Tự viết logic:
-                // 1. Debounce quét để tránh bắn sự kiện trùng liên tục
-                // 2. Chuyển state sang isValidating = true
-                // 3. Gọi validateScannedTicketUseCase(scanResult)
-                // 4. Bắn side effect PlaySound(true/false) và TriggerHapticFeedback
+                processScannedQr(intent.rawPayload, intent.gateId)
             }
             is GateScannerIntent.ToggleTorch -> {
-                // TODO: [Giai đoạn 4] Bật/tắt đèn flash hỗ trợ quét ban đêm
+                val newTorchState = !currentState.isTorchEnabled
+                setState { copy(isTorchEnabled = newTorchState) }
             }
             is GateScannerIntent.ResetScanner -> {
-                // TODO: [Giai đoạn 4] Reset trạng thái để sẵn sàng quét người tiếp theo
+                setState { copy(lastAccessStatus = null, isValidating = false) }
             }
             is GateScannerIntent.SetOfflineMode -> {
-                // TODO: [Giai đoạn 4] Chuyển đổi cờ quét Offline/Online
+                setState { copy(isOfflineMode = intent.enabled) }
             }
+        }
+    }
+
+    private fun processScannedQr(rawPayload: String, gateId: String) {
+        if (currentState.isValidating) return
+
+        viewModelScope.launch {
+            setState { copy(isValidating = true) }
+
+            val scanResult = ScanResult(
+                rawQrPayload = rawPayload,
+                scannedTimestamp = System.currentTimeMillis() / 1000,
+                gateId = gateId
+            )
+
+            val result = validateScannedTicketUseCase(scanResult)
+            result.onSuccess { status ->
+                setState { copy(lastAccessStatus = status) }
+                when (status) {
+                    is GateAccessStatus.Granted -> {
+                        sendEffect(GateScannerEffect.PlaySound(isSuccess = true))
+                        sendEffect(GateScannerEffect.TriggerHapticFeedback(isSuccess = true))
+                    }
+                    is GateAccessStatus.Denied -> {
+                        sendEffect(GateScannerEffect.PlaySound(isSuccess = false))
+                        sendEffect(GateScannerEffect.TriggerHapticFeedback(isSuccess = false))
+                    }
+                }
+            }.onFailure { error ->
+                sendEffect(GateScannerEffect.ShowMessage(error.message ?: "Lỗi hệ thống soát vé"))
+            }
+
+            // Tự động mở lại camera quét sau 2.5 giây cooldown
+            delay(2500L)
+            setState { copy(isValidating = false, lastAccessStatus = null) }
         }
     }
 }
