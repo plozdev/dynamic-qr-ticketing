@@ -15,70 +15,33 @@ import java.time.format.DateTimeFormatter
  * Triển khai ITicketRemoteDataSource với kết nối Backend REST API và offline fallback.
  */
 class DefaultTicketRemoteDataSource(
-    private val apiClient: IApiClient = OkHttpApiClient(baseUrl = "http://10.0.2.2:8080/api/v1")
+    private val apiClient: IApiClient = OkHttpApiClient()
 ) : ITicketRemoteDataSource {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy • HH:mm")
         .withZone(ZoneId.of("Asia/Ho_Chi_Minh"))
 
-    private val fallbackTickets = listOf(
-        UserTicketItem(
-            ticketId = "a1111111-0000-0000-0000-000000000001",
-            eventName = "HÀ NỘI ROCK FEST 2026",
-            venue = "SVĐ Quốc Gia Mỹ Đình, Hà Nội",
-            dateDisplay = "Hôm nay • 19:30",
-            seatNumber = "VIP-A12",
-            attendeeName = "Nguyễn Hoàng Long",
-            tierName = "VIP Diamond",
-            status = UserTicketCheckInStatus.READY_TO_CHECK_IN,
-            gateInfo = "CỔNG A1",
-            checkInNote = "Đang mở cửa check-in",
-            isCheckInOpen = true
-        ),
-        UserTicketItem(
-            ticketId = "a2222222-0000-0000-0000-000000000002",
-            eventName = "ĐẠI NHẠC HỘI MONSOON EDM",
-            venue = "TT Hội Nghị Quốc Gia, Hà Nội",
-            dateDisplay = "15/11/2026 • 18:00",
-            seatNumber = "ZONE-FANZ-08",
-            attendeeName = "Nguyễn Hoàng Long",
-            tierName = "Fanzone Standard",
-            status = UserTicketCheckInStatus.NOT_YET_CHECK_IN,
-            gateInfo = "CỔNG B2",
-            checkInNote = "Cổng mở lúc 16:00 (chưa thể check-in)",
-            isCheckInOpen = false
-        ),
-        UserTicketItem(
-            ticketId = "a3333333-0000-0000-0000-000000000003",
-            eventName = "CHUNG KẾT CÚP QUỐC GIA 2026",
-            venue = "SVĐ Hàng Đẫy, Hà Nội",
-            dateDisplay = "10/09/2026 • 17:00",
-            seatNumber = "STAND-A-45",
-            attendeeName = "Nguyễn Hoàng Long",
-            tierName = "Khán Đài A",
-            status = UserTicketCheckInStatus.CHECKED_IN,
-            gateInfo = "CỔNG CHÍNH",
-            checkInNote = "Đã check-in qua cổng CỔNG CHÍNH",
-            isCheckInOpen = false
-        )
-    )
-
     override suspend fun fetchTicketById(ticketId: String): NetworkResult<TicketDto> {
-        val dto = TicketDto(
-            ticketId = ticketId,
-            eventTitle = "Hà Nội Rock Fest 2026",
-            location = "SVĐ Quốc Gia Mỹ Đình, Hà Nội",
-            eventEpochSeconds = 1773513600L,
-            seatCode = "VIP-A12",
-            customerFullName = "Nguyễn Hoàng Long",
-            statusCode = "ACTIVE",
-            secretKey = "47c9f87cb5e23631f24d1a6e9a7e02e86d0b674b3e813739a8c62b92ef51bcf6"
-        )
-        return NetworkResult.Success(dto)
+        return apiClient.get(
+            endpoint = "/tickets/$ticketId",
+            headers = mapOf("X-User-Id" to "11111111-2222-3333-4444-555555555555")
+        ) { jsonStr ->
+            val obj = org.json.JSONObject(jsonStr)
+            TicketDto(
+                ticketId = obj.optString("ticketId", ticketId),
+                eventTitle = obj.optString("eventTitle", "Sự Kiện"),
+                location = obj.optString("location", "Chưa xác định"),
+                eventEpochSeconds = obj.optLong("eventEpochSeconds", System.currentTimeMillis() / 1000),
+                seatCode = obj.optString("seatCode", "GA-01"),
+                customerFullName = obj.optString("customerFullName", "Khán Giả"),
+                statusCode = obj.optString("statusCode", "ACTIVE"),
+                secretKey = obj.optString("secretKey").takeIf { it.isNotBlank() }
+            )
+        }
     }
 
     override suspend fun fetchMyTickets(userId: String): NetworkResult<List<UserTicketItem>> {
-        val result = apiClient.get(
+        return apiClient.get(
             endpoint = "/tickets",
             headers = mapOf("X-User-Id" to userId)
         ) { jsonStr ->
@@ -127,11 +90,6 @@ class DefaultTicketRemoteDataSource(
                 )
             }
             tickets
-        }
-
-        return when (result) {
-            is NetworkResult.Success -> result
-            is NetworkResult.Error, NetworkResult.Loading -> NetworkResult.Success(fallbackTickets)
         }
     }
 }
