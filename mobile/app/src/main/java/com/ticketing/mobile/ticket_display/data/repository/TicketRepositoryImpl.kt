@@ -51,6 +51,20 @@ class TicketRepositoryImpl(
         }
     }
 
+    override suspend fun getMyTickets(userId: String): Result<List<com.ticketing.mobile.ticket_display.domain.model.UserTicketItem>> {
+        return when (val networkResult = remoteDataSource.fetchMyTickets(userId)) {
+            is NetworkResult.Success -> {
+                Result.success(networkResult.data)
+            }
+            is NetworkResult.Error -> {
+                Result.failure(Exception(networkResult.error.messageText, networkResult.error.causeThrowable))
+            }
+            is NetworkResult.Loading -> {
+                Result.failure(IllegalStateException("Network request still loading"))
+            }
+        }
+    }
+
     /**
      * Sinh một mã Dynamic QR đơn lẻ tại thời điểm hiện tại.
      */

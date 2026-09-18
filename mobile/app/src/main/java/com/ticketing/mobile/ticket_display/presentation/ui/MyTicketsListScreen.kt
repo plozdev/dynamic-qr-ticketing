@@ -58,28 +58,9 @@ import com.ticketing.mobile.ui.theme.SurfaceContainerLow
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 
-/**
- * Trạng thái của vé trong danh sách vé của tôi.
- */
-enum class UserTicketCheckInStatus {
-    READY_TO_CHECK_IN, // Cổng đang mở, sẵn sàng check-in ngay (Dynamic QR đang xoay)
-    NOT_YET_CHECK_IN,  // Chưa tới giờ check-in (Cổng chưa mở)
-    CHECKED_IN,        // Đã check-in thành công vào cổng
-    REVOKED            // Vé bị thu hồi hoặc hủy
-}
-
-data class UserTicketItem(
-    val ticketId: String,
-    val eventName: String,
-    val venue: String,
-    val dateDisplay: String,
-    val seatNumber: String,
-    val attendeeName: String,
-    val tierName: String,
-    val status: UserTicketCheckInStatus,
-    val gateInfo: String = "GATE A1",
-    val checkInNote: String = ""
-)
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ticketing.mobile.ticket_display.domain.model.UserTicketCheckInStatus
+import com.ticketing.mobile.ticket_display.domain.model.UserTicketItem
 
 /**
  * MÀN HÌNH 2: CÁC VÉ CỦA TÔI (My Tickets Screen)
@@ -95,10 +76,12 @@ fun MyTicketsListScreen(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var selectedTicketForModal by remember { mutableStateOf<UserTicketItem?>(null) }
 
-    val myTickets = remember {
+    val state by ticketDisplayViewModel.uiState.collectAsStateWithLifecycle()
+
+    val sampleTickets = remember {
         listOf(
             UserTicketItem(
-                ticketId = "TKT-VN-2026-9901",
+                ticketId = "a1111111-0000-0000-0000-000000000001",
                 eventName = "HÀ NỘI ROCK FEST 2026",
                 venue = "SVĐ Quốc Gia Mỹ Đình, Hà Nội",
                 dateDisplay = "Hôm nay • 19:30",
@@ -107,10 +90,11 @@ fun MyTicketsListScreen(
                 tierName = "VIP Diamond",
                 status = UserTicketCheckInStatus.READY_TO_CHECK_IN,
                 gateInfo = "CỔNG A1",
-                checkInNote = "Đang mở cửa check-in"
+                checkInNote = "Đang mở cửa check-in",
+                isCheckInOpen = true
             ),
             UserTicketItem(
-                ticketId = "TKT-VN-2026-8802",
+                ticketId = "a2222222-0000-0000-0000-000000000002",
                 eventName = "ĐẠI NHẠC HỘI MONSOON EDM",
                 venue = "TT Hội Nghị Quốc Gia, Hà Nội",
                 dateDisplay = "15/11/2026 • 18:00",
@@ -119,10 +103,11 @@ fun MyTicketsListScreen(
                 tierName = "Fanzone Standard",
                 status = UserTicketCheckInStatus.NOT_YET_CHECK_IN,
                 gateInfo = "CỔNG B2",
-                checkInNote = "Cổng mở lúc 18:00 (chưa thể check-in)"
+                checkInNote = "Cổng mở lúc 16:00 (chưa thể check-in)",
+                isCheckInOpen = false
             ),
             UserTicketItem(
-                ticketId = "TKT-VN-2026-7703",
+                ticketId = "a3333333-0000-0000-0000-000000000003",
                 eventName = "CHUNG KẾT CÚP QUỐC GIA 2026",
                 venue = "SVĐ Hàng Đẫy, Hà Nội",
                 dateDisplay = "10/09/2026 • 17:00",
@@ -131,12 +116,15 @@ fun MyTicketsListScreen(
                 tierName = "Khán Đài A",
                 status = UserTicketCheckInStatus.CHECKED_IN,
                 gateInfo = "CỔNG CHÍNH",
-                checkInNote = "Đã check-in lúc 16:45:20"
+                checkInNote = "Đã check-in qua cổng CỔNG CHÍNH",
+                isCheckInOpen = false
             )
         )
     }
 
-    val filteredTickets = remember(selectedTabIndex) {
+    val myTickets = if (state.myTickets.isNotEmpty()) state.myTickets else sampleTickets
+
+    val filteredTickets = remember(selectedTabIndex, myTickets) {
         when (selectedTabIndex) {
             0 -> myTickets.filter { it.status == UserTicketCheckInStatus.READY_TO_CHECK_IN || it.status == UserTicketCheckInStatus.NOT_YET_CHECK_IN }
             1 -> myTickets.filter { it.status == UserTicketCheckInStatus.CHECKED_IN }
@@ -149,8 +137,11 @@ fun MyTicketsListScreen(
         onTabSelected = { selectedTabIndex = it },
         tickets = filteredTickets,
         onTicketClick = { ticket ->
-            selectedTicketForModal = ticket
-            onTicketSelected?.invoke(ticket)
+            // Chặn ở Mobile: Chỉ mở Dynamic QR khi vé ở trạng thái READY_TO_CHECK_IN
+            if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) {
+                selectedTicketForModal = ticket
+                onTicketSelected?.invoke(ticket)
+            }
         },
         modifier = modifier
     )

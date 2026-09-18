@@ -7,6 +7,7 @@ import com.ticketing.mobile.core_mvi.UiIntent
  */
 sealed interface TicketDisplayIntent : UiIntent {
     data class LoadTicket(val ticketId: String) : TicketDisplayIntent
+    data object LoadMyTickets : TicketDisplayIntent
     data object RefreshQrRequested : TicketDisplayIntent
     data class ToggleAutoBrightness(val enabled: Boolean) : TicketDisplayIntent
     data object RetryClicked : TicketDisplayIntent

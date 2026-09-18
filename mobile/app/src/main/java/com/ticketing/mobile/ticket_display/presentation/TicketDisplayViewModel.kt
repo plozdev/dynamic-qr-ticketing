@@ -11,20 +11,30 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
+import com.ticketing.mobile.ticket_display.domain.usecase.GetMyTicketsUseCase
+
 /**
  * ViewModel quản lý màn hình Hiển thị vé (TicketDisplayScreen) theo mô hình MVI.
  */
 class TicketDisplayViewModel(
     private val getTicketDetailUseCase: GetTicketDetailUseCase,
-    private val generateDynamicQrUseCase: GenerateDynamicQrUseCase
+    private val generateDynamicQrUseCase: GenerateDynamicQrUseCase,
+    private val getMyTicketsUseCase: GetMyTicketsUseCase? = null
 ) : BaseViewModel<TicketDisplayState, TicketDisplayIntent, TicketDisplayEffect>(
     initialState = TicketDisplayState()
 ) {
 
     private var qrObservationJob: Job? = null
 
+    init {
+        loadMyTickets()
+    }
+
     override fun handleIntent(intent: TicketDisplayIntent) {
         when (intent) {
+            is TicketDisplayIntent.LoadMyTickets -> {
+                loadMyTickets()
+            }
             is TicketDisplayIntent.LoadTicket -> {
                 loadTicket(intent.ticketId)
             }
@@ -43,6 +53,20 @@ class TicketDisplayViewModel(
                 qrObservationJob?.cancel()
                 qrObservationJob = null
             }
+        }
+    }
+
+    fun loadMyTickets(userId: String = "11111111-2222-3333-4444-555555555555") {
+        if (getMyTicketsUseCase == null) return
+        viewModelScope.launch {
+            setState { copy(isLoading = true, errorMessage = null) }
+            getMyTicketsUseCase(userId)
+                .onSuccess { tickets ->
+                    setState { copy(myTickets = tickets, isLoading = false) }
+                }
+                .onFailure { error ->
+                    setState { copy(isLoading = false, errorMessage = error.message ?: "Failed to load tickets") }
+                }
         }
     }
 

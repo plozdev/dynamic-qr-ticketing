@@ -21,11 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.ticketing.mobile.core_crypto.data.NativeCryptoEngineImpl
+import com.ticketing.mobile.events.data.datasource.DefaultEventRemoteDataSource
+import com.ticketing.mobile.events.data.repository.EventRepositoryImpl
+import com.ticketing.mobile.events.presentation.EventViewModel
 import com.ticketing.mobile.events.presentation.ui.EventListScreen
 import com.ticketing.mobile.ticket_display.data.datasource.DefaultTicketRemoteDataSource
 import com.ticketing.mobile.ticket_display.data.datasource.InMemoryTicketLocalDataSource
 import com.ticketing.mobile.ticket_display.data.repository.TicketRepositoryImpl
 import com.ticketing.mobile.ticket_display.domain.usecase.GenerateDynamicQrUseCase
+import com.ticketing.mobile.ticket_display.domain.usecase.GetMyTicketsUseCase
 import com.ticketing.mobile.ticket_display.domain.usecase.GetTicketDetailUseCase
 import com.ticketing.mobile.ticket_display.presentation.TicketDisplayViewModel
 import com.ticketing.mobile.ticket_display.presentation.ui.MyTicketsListScreen
@@ -59,15 +63,28 @@ class MainActivity : ComponentActivity() {
         )
         val getTicketDetailUseCase = GetTicketDetailUseCase(ticketRepository)
         val generateDynamicQrUseCase = GenerateDynamicQrUseCase(ticketRepository)
+        val getMyTicketsUseCase = GetMyTicketsUseCase(ticketRepository)
+
+        // Events Catalog feature dependencies
+        val eventRemoteDataSource = DefaultEventRemoteDataSource()
+        val eventRepository = EventRepositoryImpl(eventRemoteDataSource)
 
         setContent {
             DynamicQRTicketingTheme {
                 val ticketDisplayViewModel = remember {
-                    TicketDisplayViewModel(getTicketDetailUseCase, generateDynamicQrUseCase)
+                    TicketDisplayViewModel(
+                        getTicketDetailUseCase = getTicketDetailUseCase,
+                        generateDynamicQrUseCase = generateDynamicQrUseCase,
+                        getMyTicketsUseCase = getMyTicketsUseCase
+                    )
+                }
+                val eventViewModel = remember {
+                    EventViewModel(repository = eventRepository)
                 }
 
                 DynamicQrAppNavigation(
-                    ticketDisplayViewModel = ticketDisplayViewModel
+                    ticketDisplayViewModel = ticketDisplayViewModel,
+                    eventViewModel = eventViewModel
                 )
             }
         }
@@ -76,7 +93,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun DynamicQrAppNavigation(
-    ticketDisplayViewModel: TicketDisplayViewModel
+    ticketDisplayViewModel: TicketDisplayViewModel,
+    eventViewModel: EventViewModel
 ) {
     var selectedTab by remember { mutableIntStateOf(1) } // Mặc định mở Tab "Vé Của Tôi"
 
@@ -126,7 +144,8 @@ fun DynamicQrAppNavigation(
                     onEventSelected = { _ ->
                         // Chuyển sang xem vé
                         selectedTab = 1
-                    }
+                    },
+                    viewModel = eventViewModel
                 )
                 1 -> MyTicketsListScreen(
                     ticketDisplayViewModel = ticketDisplayViewModel

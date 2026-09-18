@@ -20,6 +20,11 @@ interface ITicketRepository {
     suspend fun getDynamicQr(ticketId: String): Result<DynamicQrData>
 
     /**
+     * Retrieve all tickets belonging to the current user.
+     */
+    suspend fun getMyTickets(userId: String = "11111111-2222-3333-4444-555555555555"): Result<List<com.ticketing.mobile.ticket_display.domain.model.UserTicketItem>>
+
+    /**
      * Continuously stream dynamic QR updates every rotation cycle.
      */
     fun observeDynamicQr(ticketId: String): Flow<DynamicQrData>
