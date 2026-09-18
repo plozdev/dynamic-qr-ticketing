@@ -4,25 +4,50 @@ import com.ticketing.mobile.core_crypto.data.native_bridge.NativeCryptoBridge
 import com.ticketing.mobile.core_crypto.domain.model.CryptoToken
 import com.ticketing.mobile.core_crypto.domain.model.VerificationResult
 import com.ticketing.mobile.core_crypto.domain.repository.ICryptoEngine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * Khung sườn triển khai ICryptoEngine ủy quyền tính toán cho C++ NDK qua NativeCryptoBridge.
+ * Triển khai interface ICryptoEngine trong Domain Layer bằng cách ủy quyền tính toán
+ * cho thư viện C++ NDK (libdynamic_qr_crypto.so) thông qua NativeCryptoBridge.
  */
 class NativeCryptoEngineImpl(
     private val bridge: NativeCryptoBridge = NativeCryptoBridge()
 ) : ICryptoEngine {
 
+    /**
+     * Sinh Dynamic Token bằng C++ NDK.
+     */
     override suspend fun generateToken(
         ticketId: String,
         secretKey: String,
         epochSeconds: Long,
         intervalSeconds: Int
-    ): Result<CryptoToken> {
-        // TODO: [Công đoạn 1] Gọi bridge.generateDynamicTotpToken() trên Dispatchers.Default
-        // và đóng gói trả về Result.success(CryptoToken(...))
-        TODO("Tự triển khai logic gọi JNI để sinh Dynamic Token")
+    ): Result<CryptoToken> = withContext(Dispatchers.Default) {
+        try {
+            if (!NativeCryptoBridge.isNativeAvailable()) {
+                return@withContext Result.failure(IllegalStateException("Native crypto library not loaded"))
+            }
+            val rawToken = bridge.generateDynamicTotpToken(ticketId, secretKey, epochSeconds, intervalSeconds)
+            val timeWindow = epochSeconds / intervalSeconds
+            val expiresAt = (timeWindow + 1) * intervalSeconds
+
+            Result.success(
+                CryptoToken(
+                    tokenValue = rawToken,
+                    epochSeconds = epochSeconds,
+                    expiresAtEpochSeconds = expiresAt,
+                    intervalSeconds = intervalSeconds
+                )
+            )
+        } catch (e: Throwable) {
+            Result.failure(e)
+        }
     }
 
+    /**
+     * Xác thực Dynamic Token tại máy quét bằng C++ NDK (hoạt động hoàn toàn Offline).
+     */
     override suspend fun verifyToken(
         ticketId: String,
         secretKey: String,
@@ -30,9 +55,22 @@ class NativeCryptoEngineImpl(
         epochSeconds: Long,
         intervalSeconds: Int,
         allowedDriftSteps: Int
-    ): VerificationResult {
-        // TODO: [Công đoạn 1] Gọi bridge.verifyDynamicTotpToken() và ánh xạ kết quả boolean sang VerificationResult
-        TODO("Tự triển khai logic gọi JNI để xác thực Token")
+    ): VerificationResult = withContext(Dispatchers.Default) {
+        try {
+            if (!NativeCryptoBridge.isNativeAvailable()) {
+                return@withContext VerificationResult.Error("Native crypto library not loaded")
+            }
+            val isValid = bridge.verifyDynamicTotpToken(
+                ticketId, secretKey, token, epochSeconds, intervalSeconds, allowedDriftSteps
+            )
+            if (isValid) {
+                VerificationResult.Valid
+            } else {
+                VerificationResult.InvalidToken
+            }
+        } catch (e: Throwable) {
+            VerificationResult.Error(e.message ?: "Unknown native verification error", e)
+        }
     }
 
     override fun getEngineVersion(): String {
