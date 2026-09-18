@@ -38,6 +38,20 @@ public class EventRepositoryAdapter implements EventRepository {
         return jpaRepository.existsById(id);
     }
 
+    @Override
+    public java.util.List<Event> findAll() {
+        return jpaRepository.findAllByOrderByStartDateTimeAsc().stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
+    public java.util.List<Event> findAllByStatus(com.ticketing.platform.eventcatalog.domain.model.EventStatus status) {
+        return jpaRepository.findByStatusOrderByStartDateTimeAsc(status).stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
     private EventJpaEntity toEntity(Event event) {
         Venue v = event.getVenue();
         return EventJpaEntity.builder()
@@ -49,6 +63,13 @@ public class EventRepositoryAdapter implements EventRepository {
                     .startDateTime(event.getStartDateTime())
                     .endDateTime(event.getEndDateTime())
                     .status(event.getStatus())
+                    .bannerUrl(event.getBannerUrl())
+                    .category(event.getCategory())
+                    .basePrice(event.getBasePrice())
+                    .totalTickets(event.getTotalTickets())
+                    .availableTickets(event.getAvailableTickets())
+                    .isHotTrend(event.isHotTrend())
+                    .checkInWindowMinutes(event.getCheckInWindowMinutes())
                     .build();
     }
 
@@ -65,7 +86,14 @@ public class EventRepositoryAdapter implements EventRepository {
                 entity.getStartDateTime(),
                 entity.getEndDateTime(),
                 entity.getStatus(),
-                Collections.emptyList()
+                Collections.emptyList(),
+                entity.getBannerUrl(),
+                entity.getCategory(),
+                entity.getBasePrice(),
+                entity.getTotalTickets(),
+                entity.getAvailableTickets(),
+                entity.isHotTrend(),
+                entity.getCheckInWindowMinutes()
         );
     }
 }

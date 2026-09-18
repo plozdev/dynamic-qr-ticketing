@@ -50,4 +50,25 @@ public class EventJpaEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private EventStatus status;
+
+    @Column(name = "banner_url")
+    private String bannerUrl;
+
+    @Column(name = "category", nullable = false)
+    private String category;
+
+    @Column(name = "base_price", nullable = false)
+    private java.math.BigDecimal basePrice;
+
+    @Column(name = "total_tickets", nullable = false)
+    private int totalTickets;
+
+    @Column(name = "available_tickets", nullable = false)
+    private int availableTickets;
+
+    @Column(name = "is_hot_trend", nullable = false)
+    private boolean isHotTrend;
+
+    @Column(name = "check_in_window_minutes", nullable = false)
+    private int checkInWindowMinutes;
 }

@@ -1,5 +1,6 @@
 package com.ticketing.platform.eventcatalog;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -17,6 +18,19 @@ public interface EventCatalogExportedService {
             UUID eventId,
             String name,
             String venueName,
-            String status
-    ) {}
+            String status,
+            Instant startDateTime,
+            Instant endDateTime,
+            int checkInWindowMinutes,
+            String bannerUrl
+    ) {
+        public EventSummaryDto(
+                UUID eventId,
+                String name,
+                String venueName,
+                String status
+        ) {
+            this(eventId, name, venueName, status, Instant.now(), Instant.now().plusSeconds(14400), 120, null);
+        }
+    }
 }

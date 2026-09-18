@@ -23,10 +23,26 @@ public class Event implements AggregateRoot<UUID> {
     private Instant endDateTime;
     private EventStatus status;
     private final List<TicketCategory> categories;
+    private String bannerUrl;
+    private String category;
+    private java.math.BigDecimal basePrice;
+    private int totalTickets;
+    private int availableTickets;
+    private boolean isHotTrend;
+    private int checkInWindowMinutes;
 
     public Event(UUID id, String name, String description, Venue venue,
                  Instant startDateTime, Instant endDateTime, EventStatus status,
                  List<TicketCategory> categories) {
+        this(id, name, description, venue, startDateTime, endDateTime, status, categories,
+                null, "Âm nhạc & Concert", new java.math.BigDecimal("450000"), 1000, 850, false, 120);
+    }
+
+    public Event(UUID id, String name, String description, Venue venue,
+                 Instant startDateTime, Instant endDateTime, EventStatus status,
+                 List<TicketCategory> categories, String bannerUrl, String category,
+                 java.math.BigDecimal basePrice, int totalTickets, int availableTickets,
+                 boolean isHotTrend, int checkInWindowMinutes) {
         this.id = id != null ? id : UUID.randomUUID();
         this.name = name;
         this.description = description;
@@ -35,12 +51,19 @@ public class Event implements AggregateRoot<UUID> {
         this.endDateTime = endDateTime;
         this.status = status != null ? status : EventStatus.DRAFT;
         this.categories = categories != null ? new ArrayList<>(categories) : new ArrayList<>();
+        this.bannerUrl = bannerUrl;
+        this.category = category != null ? category : "Âm nhạc & Concert";
+        this.basePrice = basePrice != null ? basePrice : new java.math.BigDecimal("450000");
+        this.totalTickets = totalTickets > 0 ? totalTickets : 1000;
+        this.availableTickets = availableTickets >= 0 ? availableTickets : 850;
+        this.isHotTrend = isHotTrend;
+        this.checkInWindowMinutes = checkInWindowMinutes > 0 ? checkInWindowMinutes : 120;
     }
 
     public static Event create(String name, String description, Venue venue,
                                Instant startDateTime, Instant endDateTime) {
         if (startDateTime.isAfter(endDateTime)) {
-            throw new DomainException("Event date mút precede end date");
+            throw new DomainException("Event date must precede end date");
         }
         return new Event(UUID.randomUUID(), name, description, venue, startDateTime, endDateTime, EventStatus.DRAFT, new ArrayList<>());
     }
@@ -81,5 +104,46 @@ public class Event implements AggregateRoot<UUID> {
 
     public List<TicketCategory> getCategories() {
         return Collections.unmodifiableList(categories);
+    }
+
+    public String getBannerUrl() {
+        return bannerUrl;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public java.math.BigDecimal getBasePrice() {
+        return basePrice;
+    }
+
+    public int getTotalTickets() {
+        return totalTickets;
+    }
+
+    public int getAvailableTickets() {
+        return availableTickets;
+    }
+
+    public int getRemainingPercentage() {
+        if (totalTickets <= 0) return 0;
+        return (int) Math.round(((double) availableTickets / totalTickets) * 100);
+    }
+
+    public boolean isHotTrend() {
+        return isHotTrend;
+    }
+
+    public int getCheckInWindowMinutes() {
+        return checkInWindowMinutes;
+    }
+
+    public Instant getCheckInOpensAt() {
+        return startDateTime.minus(java.time.Duration.ofMinutes(checkInWindowMinutes));
+    }
+
+    public boolean isCheckInOpen(Instant now) {
+        return !now.isBefore(getCheckInOpensAt()) && !now.isAfter(endDateTime);
     }
 }

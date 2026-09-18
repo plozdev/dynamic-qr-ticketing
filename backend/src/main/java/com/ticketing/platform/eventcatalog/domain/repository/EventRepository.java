@@ -15,4 +15,8 @@ public interface EventRepository {
     Optional<Event> findById(UUID id);
 
     boolean existsById(UUID id);
+
+    java.util.List<Event> findAll();
+
+    java.util.List<Event> findAllByStatus(com.ticketing.platform.eventcatalog.domain.model.EventStatus status);
 }

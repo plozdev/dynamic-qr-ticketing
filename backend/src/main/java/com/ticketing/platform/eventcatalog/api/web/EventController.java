@@ -35,6 +35,13 @@ public class EventController {
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
+    @GetMapping
+    public ResponseEntity<java.util.List<EventResponse>> getEvents(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String category,
+            @org.springframework.web.bind.annotation.RequestParam(required = false) com.ticketing.platform.eventcatalog.domain.model.EventStatus status) {
+        return ResponseEntity.ok(getEventQuery.getEvents(category, status));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<EventResponse> getEventById(@PathVariable UUID id) {
         return ResponseEntity.status(HttpStatus.OK)

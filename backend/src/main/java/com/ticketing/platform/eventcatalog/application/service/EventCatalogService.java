@@ -63,6 +63,27 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
         return toResponse(event);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<EventResponse> getEvents(String category, EventStatus status) {
+        java.util.List<Event> events;
+        if (status != null) {
+            events = eventRepository.findAllByStatus(status);
+        } else {
+            events = eventRepository.findAllByStatus(EventStatus.PUBLISHED);
+        }
+
+        if (category != null && !category.isBlank() && !category.equalsIgnoreCase("Tất cả")) {
+            events = events.stream()
+                    .filter(e -> category.equalsIgnoreCase(e.getCategory()))
+                    .toList();
+        }
+
+        return events.stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     // --- Boundary Service (EventCatalogExportedService implementation) ---
 
     @Override
@@ -79,7 +100,16 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EntityNotFoundException("Event", eventId));
         String venueName = event.getVenue() != null ? event.getVenue().name() : null;
-        return new EventSummaryDto(event.getId(), event.getName(), venueName, event.getStatus().name());
+        return new EventSummaryDto(
+                event.getId(),
+                event.getName(),
+                venueName,
+                event.getStatus().name(),
+                event.getStartDateTime(),
+                event.getEndDateTime(),
+                event.getCheckInWindowMinutes(),
+                event.getBannerUrl()
+        );
     }
 
     private EventResponse toResponse(Event event) {
@@ -90,7 +120,15 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
                 event.getVenue() != null ? event.getVenue().name() : null,
                 event.getStartDateTime(),
                 event.getEndDateTime(),
-                event.getStatus().name()
+                event.getStatus().name(),
+                event.getBannerUrl(),
+                event.getCategory(),
+                event.getBasePrice(),
+                event.getTotalTickets(),
+                event.getAvailableTickets(),
+                event.getRemainingPercentage(),
+                event.isHotTrend(),
+                event.getCheckInWindowMinutes()
         );
     }
 }
