@@ -81,10 +81,14 @@ import com.ticketing.mobile.ui.theme.SurfaceContainerLow
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 
+import com.ticketing.mobile.ticket_display.domain.model.UserTicketItem
+import com.ticketing.mobile.ticket_display.domain.model.UserTicketCheckInStatus
+
 @Composable
 fun TicketQrSlideUpModal(
     ticketId: String,
     viewModel: TicketDisplayViewModel,
+    ticketItem: UserTicketItem? = null,
     onDismiss: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -108,7 +112,7 @@ fun TicketQrSlideUpModal(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.65f))
+                .background(Color.Black.copy(alpha = 0.7f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
@@ -127,6 +131,7 @@ fun TicketQrSlideUpModal(
                 TicketQrPopupModalCard(
                     ticketId = ticketId,
                     ticket = state.ticket,
+                    ticketItem = ticketItem,
                     dynamicQr = state.dynamicQr,
                     isLoading = state.isLoading,
                     errorMessage = state.errorMessage,
@@ -166,6 +171,7 @@ fun TicketQrBottomSheetModal(
 fun TicketQrPopupModalCard(
     ticketId: String,
     ticket: Ticket?,
+    ticketItem: UserTicketItem? = null,
     dynamicQr: DynamicQrData?,
     isLoading: Boolean = false,
     errorMessage: String? = null,
@@ -173,6 +179,16 @@ fun TicketQrPopupModalCard(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val displayStatus = when {
+        ticketItem?.status == UserTicketCheckInStatus.NOT_YET_CHECK_IN -> TicketStatus.EXPIRED
+        ticketItem?.status == UserTicketCheckInStatus.CHECKED_IN -> TicketStatus.CHECKED_IN
+        ticketItem?.status == UserTicketCheckInStatus.REVOKED -> TicketStatus.REVOKED
+        ticket?.status == TicketStatus.CHECKED_IN -> TicketStatus.CHECKED_IN
+        ticket?.status == TicketStatus.REVOKED -> TicketStatus.REVOKED
+        ticket?.status == TicketStatus.EXPIRED -> TicketStatus.EXPIRED
+        else -> TicketStatus.ACTIVE
+    }
+
     Card(
         modifier = modifier
             .fillMaxWidth()
@@ -182,7 +198,10 @@ fun TicketQrPopupModalCard(
             ) { /* Ngăn chặn bấm xuyên thấu thẻ */ },
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = SurfaceContainer),
-        border = BorderStroke(1.5.dp, EmeraldPrimary.copy(alpha = 0.35f)),
+        border = BorderStroke(
+            1.5.dp,
+            if (displayStatus == TicketStatus.ACTIVE) EmeraldPrimary.copy(alpha = 0.35f) else AmberTertiary.copy(alpha = 0.35f)
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
     ) {
         Column(
@@ -201,7 +220,7 @@ fun TicketQrPopupModalCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Header cửa sổ: Tên sự kiện & Nút đóng
+            // Header cửa sổ: Tên sự kiện & Hạng vé & Nút đóng
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -209,29 +228,42 @@ fun TicketQrPopupModalCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = ticket?.eventName ?: "Sự Kiện Check-in",
+                        text = ticketItem?.eventName ?: ticket?.eventName ?: "Sự Kiện Check-in",
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         color = TextHighEmphasis,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 2.dp)
+                        modifier = Modifier.padding(top = 4.dp)
                     ) {
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
                                 .clip(CircleShape)
-                                .background(EmeraldPrimary)
+                                .background(if (displayStatus == TicketStatus.ACTIVE) EmeraldPrimary else AmberTertiary)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "#$ticketId",
+                            text = ticketItem?.tierName ?: "Vé Tiêu Chuẩn",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (displayStatus == TicketStatus.ACTIVE) EmeraldPrimary else AmberTertiary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "•",
+                            fontSize = 12.sp,
+                            color = TextMediumEmphasis
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "#TKT-${ticketId.takeLast(6).uppercase()}",
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
-                            color = EmeraldPrimary
+                            color = TextMediumEmphasis
                         )
                     }
                 }
@@ -251,7 +283,7 @@ fun TicketQrPopupModalCard(
 
             // Phần thân chính: Loading, Lỗi, hoặc Mã QR
             when {
-                isLoading -> {
+                isLoading && ticket == null && ticketItem == null -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -263,7 +295,7 @@ fun TicketQrPopupModalCard(
                         Text("Đang nạp mã vé bảo mật...", color = TextMediumEmphasis, fontSize = 12.sp)
                     }
                 }
-                errorMessage != null && ticket == null -> {
+                errorMessage != null && ticket == null && ticketItem == null -> {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -274,8 +306,6 @@ fun TicketQrPopupModalCard(
                     }
                 }
                 else -> {
-                    val status = ticket?.status ?: TicketStatus.ACTIVE
-
                     // Hộp hiển thị mã QR tinh giản
                     Box(
                         modifier = Modifier
@@ -285,7 +315,7 @@ fun TicketQrPopupModalCard(
                             .padding(12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        when (status) {
+                        when (displayStatus) {
                             TicketStatus.ACTIVE -> {
                                 CompactActiveDynamicQr(
                                     ticketId = ticketId,
@@ -294,12 +324,12 @@ fun TicketQrPopupModalCard(
                                 )
                             }
                             TicketStatus.EXPIRED -> {
-                                CompactLockedQr(gateOpensAt = "18:00")
+                                CompactLockedQr(gateOpensAt = ticketItem?.dateDisplay ?: "Trước giờ diễn 2 tiếng")
                             }
                             TicketStatus.CHECKED_IN -> {
                                 CompactCheckedInQr(
-                                    attendeeName = ticket?.ticketHolderName ?: "Khách mời",
-                                    seatCode = ticket?.seatNumber ?: "VIP-A12"
+                                    attendeeName = ticketItem?.attendeeName ?: ticket?.ticketHolderName ?: "Khách mời",
+                                    seatCode = ticketItem?.seatNumber ?: ticket?.seatNumber ?: "VIP-A12"
                                 )
                             }
                             TicketStatus.REVOKED -> {
@@ -316,15 +346,15 @@ fun TicketQrPopupModalCard(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(10.dp))
                             .background(SurfaceContainerHigh)
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                            .padding(horizontal = 14.dp, vertical = 9.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
                             Text("KHÁCH HÀNG", fontSize = 9.sp, color = TextMediumEmphasis, fontWeight = FontWeight.SemiBold)
                             Text(
-                                text = ticket?.ticketHolderName ?: "Nguyễn Hoàng Long",
-                                fontSize = 12.sp,
+                                text = ticketItem?.attendeeName ?: ticket?.ticketHolderName ?: "Nguyễn Hoàng Long",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = TextHighEmphasis
                             )
@@ -333,8 +363,8 @@ fun TicketQrPopupModalCard(
                         Column(horizontalAlignment = Alignment.End) {
                             Text("VỊ TRÍ GHẾ", fontSize = 9.sp, color = TextMediumEmphasis, fontWeight = FontWeight.SemiBold)
                             Text(
-                                text = "CỔNG A1 • ${ticket?.seatNumber ?: "VIP-A12"}",
-                                fontSize = 12.sp,
+                                text = "${ticketItem?.gateInfo ?: "CỔNG A1"} • ${ticketItem?.seatNumber ?: ticket?.seatNumber ?: "VIP-A12"}",
+                                fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = CyanSecondary
                             )
@@ -345,7 +375,13 @@ fun TicketQrPopupModalCard(
 
                     // Dòng chỉ dẫn nhanh
                     Text(
-                        text = "💡 Đưa mã QR vào máy quét tại cổng để vào sự kiện",
+                        text = if (displayStatus == TicketStatus.ACTIVE) {
+                            "💡 Đưa mã QR vào máy quét tại cổng để vào sự kiện"
+                        } else if (displayStatus == TicketStatus.EXPIRED) {
+                            "ℹ️ Mã QR sẽ tự động kích hoạt khi cổng check-in mở"
+                        } else {
+                            "✓ Vé điện tử đã sử dụng thành công"
+                        },
                         fontSize = 11.sp,
                         color = TextMediumEmphasis,
                         textAlign = TextAlign.Center
@@ -360,7 +396,7 @@ fun TicketQrPopupModalCard(
                 onClick = onClose,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp),
+                    .height(42.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = SurfaceContainerHighest),
                 shape = RoundedCornerShape(10.dp)
             ) {
@@ -385,7 +421,6 @@ private fun CompactActiveDynamicQr(
     val tokenHash = dynamicQr?.qrPayload ?: ticketId
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // Hộp mã QR nền trắng tương phản cao
         Box(
             modifier = Modifier
                 .size(190.dp)
@@ -398,23 +433,9 @@ private fun CompactActiveDynamicQr(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 DynamicQrMatrixGraphic(
                     tokenHash = tokenHash,
-                    modifier = Modifier.size(145.dp)
+                    modifier = Modifier.size(165.dp)
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(ObsidianVoid)
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(EmeraldPrimary))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("LIVE TOKEN", fontSize = 8.sp, fontWeight = FontWeight.Bold, color = EmeraldPrimary)
-                    }
-                }
             }
         }
 
@@ -449,7 +470,7 @@ private fun CompactActiveDynamicQr(
                     color = TextHighEmphasis
                 )
                 Text(
-                    text = "HMAC: ${dynamicQr?.qrPayload?.takeLast(12) ?: "..."}",
+                    text = "Mã bảo mật: ${dynamicQr?.qrPayload?.substringAfterLast(":")?.take(12) ?: "••••••••••••"}",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 9.sp,
                     color = CyanSecondary
@@ -466,39 +487,37 @@ private fun CompactActiveDynamicQr(
 private fun CompactLockedQr(gateOpensAt: String) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(vertical = 10.dp)
+        modifier = Modifier.padding(vertical = 12.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(180.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(190.dp)
+                .clip(RoundedCornerShape(14.dp))
                 .background(SurfaceContainerHigh)
-                .border(1.5.dp, AmberTertiary.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                .padding(12.dp),
+                .border(1.5.dp, AmberTertiary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                .padding(14.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🔒", fontSize = 38.sp)
+                Text("🔒", fontSize = 36.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "MÃ QR ĐANG ĐƯỢC KHÓA",
+                    text = "MÃ QR ĐANG TẠM KHÓA",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     color = AmberTertiary,
                     textAlign = TextAlign.Center
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Cổng mở lúc $gateOpensAt\n(Chưa thể check-in lúc này)",
-                    fontSize = 10.sp,
+                    text = "Cổng soát vé chưa mở.\nMã QR động sẽ tự động kích hoạt trước giờ bắt đầu sự kiện.",
+                    fontSize = 11.sp,
                     color = TextMediumEmphasis,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    lineHeight = 15.sp
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("⏳ Thời gian đếm ngược: Còn 02 giờ 15 phút", fontSize = 11.sp, color = AmberTertiary, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -543,9 +562,6 @@ private fun CompactCheckedInQr(attendeeName: String, seatCode: String) {
                 )
             }
         }
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Mã QR đã được vô hiệu hóa sau khi qua cổng.", fontSize = 10.sp, color = TextMediumEmphasis)
     }
 }
 

@@ -78,51 +78,7 @@ fun MyTicketsListScreen(
 
     val state by ticketDisplayViewModel.uiState.collectAsStateWithLifecycle()
 
-    val sampleTickets = remember {
-        listOf(
-            UserTicketItem(
-                ticketId = "a1111111-0000-0000-0000-000000000001",
-                eventName = "HÀ NỘI ROCK FEST 2026",
-                venue = "SVĐ Quốc Gia Mỹ Đình, Hà Nội",
-                dateDisplay = "Hôm nay • 19:30",
-                seatNumber = "VIP-A12",
-                attendeeName = "Nguyễn Hoàng Long",
-                tierName = "VIP Diamond",
-                status = UserTicketCheckInStatus.READY_TO_CHECK_IN,
-                gateInfo = "CỔNG A1",
-                checkInNote = "Đang mở cửa check-in",
-                isCheckInOpen = true
-            ),
-            UserTicketItem(
-                ticketId = "a2222222-0000-0000-0000-000000000002",
-                eventName = "ĐẠI NHẠC HỘI MONSOON EDM",
-                venue = "TT Hội Nghị Quốc Gia, Hà Nội",
-                dateDisplay = "15/11/2026 • 18:00",
-                seatNumber = "ZONE-FANZ-08",
-                attendeeName = "Nguyễn Hoàng Long",
-                tierName = "Fanzone Standard",
-                status = UserTicketCheckInStatus.NOT_YET_CHECK_IN,
-                gateInfo = "CỔNG B2",
-                checkInNote = "Cổng mở lúc 16:00 (chưa thể check-in)",
-                isCheckInOpen = false
-            ),
-            UserTicketItem(
-                ticketId = "a3333333-0000-0000-0000-000000000003",
-                eventName = "CHUNG KẾT CÚP QUỐC GIA 2026",
-                venue = "SVĐ Hàng Đẫy, Hà Nội",
-                dateDisplay = "10/09/2026 • 17:00",
-                seatNumber = "STAND-A-45",
-                attendeeName = "Nguyễn Hoàng Long",
-                tierName = "Khán Đài A",
-                status = UserTicketCheckInStatus.CHECKED_IN,
-                gateInfo = "CỔNG CHÍNH",
-                checkInNote = "Đã check-in qua cổng CỔNG CHÍNH",
-                isCheckInOpen = false
-            )
-        )
-    }
-
-    val myTickets = if (state.myTickets.isNotEmpty()) state.myTickets else sampleTickets
+    val myTickets = state.myTickets
 
     val filteredTickets = remember(selectedTabIndex, myTickets) {
         when (selectedTabIndex) {
@@ -136,21 +92,22 @@ fun MyTicketsListScreen(
         selectedTabIndex = selectedTabIndex,
         onTabSelected = { selectedTabIndex = it },
         tickets = filteredTickets,
+        isLoading = state.isLoading,
+        errorMessage = state.errorMessage,
+        onRetry = { ticketDisplayViewModel.loadMyTickets() },
         onTicketClick = { ticket ->
-            // Chặn ở Mobile: Chỉ mở Dynamic QR khi vé ở trạng thái READY_TO_CHECK_IN
-            if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) {
-                selectedTicketForModal = ticket
-                onTicketSelected?.invoke(ticket)
-            }
+            selectedTicketForModal = ticket
+            onTicketSelected?.invoke(ticket)
         },
         modifier = modifier
     )
 
-    // CỬA SỔ TRƯỢT LÊN / POPUP MODAL DYNAMIC QR (Chỉ hiển thị QR và thông tin cơ bản)
+    // CỬA SỔ TRƯỢT LÊN / POPUP MODAL DYNAMIC QR (Hiển thị QR hoặc Chi tiết vé)
     if (selectedTicketForModal != null) {
         TicketQrSlideUpModal(
             ticketId = selectedTicketForModal!!.ticketId,
             viewModel = ticketDisplayViewModel,
+            ticketItem = selectedTicketForModal,
             onDismiss = { selectedTicketForModal = null }
         )
     }
@@ -166,7 +123,10 @@ fun MyTicketsContent(
     onTabSelected: (Int) -> Unit,
     tickets: List<UserTicketItem>,
     onTicketClick: (UserTicketItem) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isLoading: Boolean = false,
+    errorMessage: String? = null,
+    onRetry: (() -> Unit)? = null
 ) {
     val tabs = listOf("Sắp Diễn Ra", "Đã Sử Dụng", "Tất Cả")
 
@@ -219,18 +179,80 @@ fun MyTicketsContent(
                 }
             }
 
-            // Ticket List
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(tickets) { ticket ->
-                    UserTicketCard(
-                        ticket = ticket,
-                        onClick = { onTicketClick(ticket) }
+            // Ticket Content States
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = EmeraldPrimary,
+                        modifier = Modifier.size(36.dp)
                     )
+                }
+            } else if (errorMessage != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = SurfaceContainerHighest),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("⚠️", fontSize = 28.sp)
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(errorMessage, color = TextHighEmphasis, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Button(
+                                onClick = { onRetry?.invoke() },
+                                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                            ) {
+                                Text("Tải Lại Vé", color = ObsidianVoid, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            } else if (tickets.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🎟️", fontSize = 36.sp)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Bạn chưa có vé nào trong mục này.",
+                            color = TextMediumEmphasis,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(tickets) { ticket ->
+                        UserTicketCard(
+                            ticket = ticket,
+                            onClick = { onTicketClick(ticket) }
+                        )
+                    }
                 }
             }
         }
@@ -309,10 +331,10 @@ fun UserTicketCard(
                 }
 
                 Text(
-                    text = ticket.ticketId,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    color = TextMediumEmphasis
+                    text = ticket.tierName,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = CyanSecondary
                 )
             }
 
@@ -354,13 +376,16 @@ fun UserTicketCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f, fill = false)) {
                     Text("CỬA / HÀNG GHẾ", fontSize = 10.sp, color = TextMediumEmphasis, fontWeight = FontWeight.SemiBold)
-                    Text("${ticket.gateInfo} • ${ticket.seatNumber}", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = TextHighEmphasis)
+                    Text("${ticket.gateInfo} • ${ticket.seatNumber}", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = TextHighEmphasis)
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Button(
                     onClick = onClick,
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) EmeraldPrimary else SurfaceContainerHighest
                     ),
@@ -370,7 +395,8 @@ fun UserTicketCard(
                         text = if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) "Mở Dynamic QR" else "Xem Chi Tiết",
                         color = if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) ObsidianVoid else TextHighEmphasis,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
+                        fontSize = 12.sp,
+                        maxLines = 1
                     )
                 }
             }
