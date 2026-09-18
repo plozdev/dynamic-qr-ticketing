@@ -10,4 +10,5 @@ sealed interface TicketDisplayIntent : UiIntent {
     data object RefreshQrRequested : TicketDisplayIntent
     data class ToggleAutoBrightness(val enabled: Boolean) : TicketDisplayIntent
     data object RetryClicked : TicketDisplayIntent
+    data object StopQrObservation : TicketDisplayIntent
 }

@@ -5,18 +5,36 @@ import com.ticketing.mobile.ticket_display.domain.repository.ITicketRepository
 import kotlinx.coroutines.flow.Flow
 
 /**
- * UseCase: Tạo và quản lý luồng dữ liệu Dynamic QR code xoay vòng.
+ * UseCase quản lý nghiệp vụ sinh mã Dynamic QR và luồng đếm ngược thời gian thực.
+ * 
+ * Vai trò:
+ * - Cung cấp hàm lấy nhanh 1 mã QR tại thời điểm hiện tại (`fetchCurrentQr`).
+ * - Cung cấp luồng Flow liên tục phát dữ liệu QR mới và số giây đếm ngược mỗi giây (`observeQrStream`).
  */
 class GenerateDynamicQrUseCase(
     private val repository: ITicketRepository
 ) {
+    /**
+     * Lấy ngay mã QR động hiện thời (Single Shot).
+     * 
+     * @param ticketId Mã vé cần tạo QR.
+     * @return Result<DynamicQrData> chứa payload QR và thời gian hiệu lực.
+     */
     suspend fun fetchCurrentQr(ticketId: String): Result<DynamicQrData> {
-        // TODO: [Giai đoạn 3] Tự viết logic lấy QR code hiện tại
-        TODO("Tự triển khai lấy QR code hiện thời")
+        if (ticketId.isBlank()) {
+            return Result.failure(IllegalArgumentException("Ticket ID must not be blank"))
+        }
+        return repository.getDynamicQr(ticketId.trim())
     }
 
+    /**
+     * Lắng nghe luồng dữ liệu Dynamic QR đếm ngược thời gian thực (Reactive Stream).
+     * 
+     * @param ticketId Mã vé cần theo dõi.
+     * @return Flow<DynamicQrData> phát ra mỗi giây (cập nhật remainingSeconds và đổi QR khi hết chu kỳ 30s).
+     */
     fun observeQrStream(ticketId: String): Flow<DynamicQrData> {
-        // TODO: [Giai đoạn 3] Tự viết logic lắng nghe luồng countdown & rotation QR từ repository
-        TODO("Tự triển khai lắng nghe luồng QR stream")
+        require(ticketId.isNotBlank()) { "Ticket ID must not be blank" }
+        return repository.observeDynamicQr(ticketId.trim())
     }
 }

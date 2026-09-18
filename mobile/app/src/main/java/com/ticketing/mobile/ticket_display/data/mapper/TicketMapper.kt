@@ -2,19 +2,39 @@ package com.ticketing.mobile.ticket_display.data.mapper
 
 import com.ticketing.mobile.ticket_display.data.dto.TicketDto
 import com.ticketing.mobile.ticket_display.domain.model.Ticket
+import com.ticketing.mobile.ticket_display.domain.model.TicketStatus
 
 /**
- * Khung sườn Mapper chuyển đổi qua lại giữa TicketDto và Ticket domain entity.
+ * Mapper chuyển đổi qua lại giữa TicketDto (Data Layer) và Ticket (Domain Entity).
  */
 object TicketMapper {
 
     fun toDomain(dto: TicketDto): Ticket {
-        // TODO: [Giai đoạn 3] Tự viết logic ánh xạ các trường từ DTO sang Domain Model
-        TODO("Tự triển khai mapper DTO sang Domain Entity")
+        val parsedStatus = runCatching {
+            TicketStatus.valueOf(dto.statusCode.trim().uppercase())
+        }.getOrDefault(TicketStatus.REVOKED)
+
+        return Ticket(
+            id = dto.ticketId,
+            eventName = dto.eventTitle,
+            venue = dto.location,
+            eventTimestamp = dto.eventEpochSeconds,
+            seatNumber = dto.seatCode,
+            ticketHolderName = dto.customerFullName,
+            status = parsedStatus
+        )
     }
 
-    fun toDto(domain: Ticket): TicketDto {
-        // TODO: [Giai đoạn 3] Tự viết logic ánh xạ các trường từ Domain Model sang DTO
-        TODO("Tự triển khai mapper Domain sang DTO")
+    fun toDto(domain: Ticket, secretKey: String? = null): TicketDto {
+        return TicketDto(
+            ticketId = domain.id,
+            eventTitle = domain.eventName,
+            location = domain.venue,
+            eventEpochSeconds = domain.eventTimestamp,
+            seatCode = domain.seatNumber,
+            customerFullName = domain.ticketHolderName,
+            statusCode = domain.status.name,
+            secretKey = secretKey
+        )
     }
 }
