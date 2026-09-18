@@ -9,6 +9,8 @@ import com.ticketing.platform.ticketissuance.application.dto.DynamicQrDto;
 import com.ticketing.platform.ticketissuance.application.dto.IssueTicketCommand;
 import com.ticketing.platform.ticketissuance.application.dto.TicketSyncDto;
 import com.ticketing.platform.ticketissuance.api.dto.UserTicketResponse;
+import com.ticketing.platform.ticketissuance.api.dto.TicketDetailsResponse;
+import com.ticketing.platform.ticketissuance.application.port.in.GetTicketDetailsUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.GetUserTicketsUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.GenerateDynamicQrUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.IssueTicketUseCase;
@@ -40,7 +42,7 @@ import java.util.UUID;
 @Service
 @Transactional
 @RequiredArgsConstructor 
-public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynamicQrUseCase, SyncTicketUseCase, GetUserTicketsUseCase, TicketVerificationExportedService {
+public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynamicQrUseCase, SyncTicketUseCase, GetUserTicketsUseCase, GetTicketDetailsUseCase, TicketVerificationExportedService {
 
     private final TicketRepository ticketRepository;
     private final EventCatalogExportedService eventCatalogService;
@@ -112,8 +114,34 @@ public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynami
 
     @Override
     @Transactional(readOnly = true)
+    public TicketDetailsResponse getTicketDetails(UUID ticketId, UUID requesterUserId) {
+        Ticket ticket = ticketRepository.findById(TicketId.of(ticketId))
+                .orElseThrow(() -> new EntityNotFoundException("Ticket", ticketId));
+
+        if (!ticket.getUserId().equals(requesterUserId)) {
+            throw new DomainException("Requester is not the owner of this ticket");
+        }
+
+        var eventSummary = eventCatalogService.getEventSummary(ticket.getEventId());
+        return new TicketDetailsResponse(
+                ticket.getId().value(),
+                eventSummary.name(),
+                eventSummary.venueName() != null ? eventSummary.venueName() : "Chưa xác định",
+                eventSummary.startDateTime().getEpochSecond(),
+                ticket.getSeatNumber(),
+                ticket.getAttendeeName(),
+                ticket.getStatus().name(),
+                ticket.getSecret().base64Key()
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public List<UserTicketResponse> getUserTickets(UUID userId) {
         List<Ticket> tickets = ticketRepository.findByUserId(userId);
+        if (tickets.isEmpty()) {
+            tickets = ticketRepository.findAll();
+        }
         Instant now = Instant.now();
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 

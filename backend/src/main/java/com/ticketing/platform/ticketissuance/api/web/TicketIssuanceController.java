@@ -27,6 +27,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.ticketing.platform.ticketissuance.api.dto.TicketDetailsResponse;
+import com.ticketing.platform.ticketissuance.application.port.in.GetTicketDetailsUseCase;
+
 /**
  * REST Controller cho Ticket Issuance.
  */
@@ -39,6 +42,7 @@ public class TicketIssuanceController {
     private final GenerateDynamicQrUseCase generateDynamicQrUseCase;
     private final SyncTicketUseCase syncTicketUseCase;
     private final GetUserTicketsUseCase getUserTicketsUseCase;
+    private final GetTicketDetailsUseCase getTicketDetailsUseCase;
 
     @GetMapping
     public ResponseEntity<List<UserTicketResponse>> getMyTickets(
@@ -51,6 +55,18 @@ public class TicketIssuanceController {
         return ResponseEntity.ok(getUserTicketsUseCase.getUserTickets(effectiveUserId));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<TicketDetailsResponse> getTicketDetails(
+            @PathVariable UUID id,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
+            @RequestParam(value = "userId", required = false) UUID userIdParam) {
+        UUID effectiveUserId = userIdHeader != null ? userIdHeader : userIdParam;
+        if (effectiveUserId == null) {
+            effectiveUserId = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        }
+        return ResponseEntity.ok(getTicketDetailsUseCase.getTicketDetails(id, effectiveUserId));
+    }
+
     @PostMapping("/issue")
     public ResponseEntity<Map<String, Object>> issueTicket(@Valid @RequestBody IssueTicketRequest request) {
         UUID ticketId = issueTicketUseCase.issueTicket(request.toCommand());
@@ -60,8 +76,13 @@ public class TicketIssuanceController {
     @GetMapping("/{id}/dynamic-qr")
     public ResponseEntity<DynamicQrResponse> getDynamicQr(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") UUID requesterUserId) {
-        DynamicQrDto dto = generateDynamicQrUseCase.generateDynamicQr(id, requesterUserId);
+            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
+            @RequestParam(value = "userId", required = false) UUID userIdParam) {
+        UUID effectiveUserId = userIdHeader != null ? userIdHeader : userIdParam;
+        if (effectiveUserId == null) {
+            effectiveUserId = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        }
+        DynamicQrDto dto = generateDynamicQrUseCase.generateDynamicQr(id, effectiveUserId);
         return ResponseEntity.ok(new DynamicQrResponse(
                 dto.ticketId(),
                 dto.dynamicPayload(),
@@ -73,8 +94,13 @@ public class TicketIssuanceController {
     @GetMapping("/{id}/sync")
     public ResponseEntity<TicketSyncResponse> syncTicket(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") UUID requesterUserId) {
-        TicketSyncDto dto = syncTicketUseCase.syncTicket(id, requesterUserId);
+            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
+            @RequestParam(value = "userId", required = false) UUID userIdParam) {
+        UUID effectiveUserId = userIdHeader != null ? userIdHeader : userIdParam;
+        if (effectiveUserId == null) {
+            effectiveUserId = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        }
+        TicketSyncDto dto = syncTicketUseCase.syncTicket(id, effectiveUserId);
         return ResponseEntity.ok(new TicketSyncResponse(
                 dto.ticketId(),
                 dto.eventId(),

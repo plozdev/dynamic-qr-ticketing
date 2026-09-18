@@ -15,4 +15,6 @@ public interface TicketRepository {
     Optional<Ticket> findById(TicketId id);
 
     java.util.List<Ticket> findByUserId(java.util.UUID userId);
+
+    java.util.List<Ticket> findAll();
 }

@@ -39,6 +39,13 @@ public class TicketRepositoryAdapter implements TicketRepository {
                 .toList();
     }
 
+    @Override
+    public java.util.List<Ticket> findAll() {
+        return jpaRepository.findAll().stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
     private TicketJpaEntity toEntity(Ticket ticket) {
         return TicketJpaEntity.builder()
                 .id(ticket.getId().value())
