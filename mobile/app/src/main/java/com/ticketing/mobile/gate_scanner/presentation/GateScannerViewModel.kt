@@ -13,12 +13,6 @@ import kotlinx.coroutines.launch
 
 /**
  * ViewModel quản lý màn hình máy quét vé tại cổng (GateScannerScreen) theo kiến trúc MVI.
- * 
- * Mục đích:
- * 1. Nhận chuỗi quét từ Camera ML Kit / CameraX trong hàm handleIntent.
- * 2. Debounce: Ngăn chặn quét trùng lặp liên tục khi camera bắt nhiều frame cùng một mã QR.
- * 3. Cập nhật State phản hồi màu sắc UI: Xanh lá cây (Granted), Đỏ (Denied).
- * 4. Phát Side Effects: Phát âm thanh Beep (thành công/thất bại), rung máy haptic, và tự động mở lại camera sau 2 giây cooldown.
  */
 class GateScannerViewModel(
     private val validateScannedTicketUseCase: ValidateScannedTicketUseCase

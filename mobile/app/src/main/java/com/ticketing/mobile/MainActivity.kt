@@ -22,11 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.ticketing.mobile.core_crypto.data.NativeCryptoEngineImpl
 import com.ticketing.mobile.events.presentation.ui.EventListScreen
-import com.ticketing.mobile.gate_scanner.data.datasource.DefaultGateRemoteDataSource
-import com.ticketing.mobile.gate_scanner.data.repository.GateValidationRepositoryImpl
-import com.ticketing.mobile.gate_scanner.domain.usecase.ValidateScannedTicketUseCase
-import com.ticketing.mobile.gate_scanner.presentation.GateScannerViewModel
-import com.ticketing.mobile.gate_scanner.presentation.ui.GateScannerScreen
 import com.ticketing.mobile.ticket_display.data.datasource.DefaultTicketRemoteDataSource
 import com.ticketing.mobile.ticket_display.data.datasource.InMemoryTicketLocalDataSource
 import com.ticketing.mobile.ticket_display.data.repository.TicketRepositoryImpl
@@ -34,7 +29,6 @@ import com.ticketing.mobile.ticket_display.domain.usecase.GenerateDynamicQrUseCa
 import com.ticketing.mobile.ticket_display.domain.usecase.GetTicketDetailUseCase
 import com.ticketing.mobile.ticket_display.presentation.TicketDisplayViewModel
 import com.ticketing.mobile.ticket_display.presentation.ui.MyTicketsListScreen
-import com.ticketing.mobile.ui.theme.CyanSecondary
 import com.ticketing.mobile.ui.theme.DynamicQRTicketingTheme
 import com.ticketing.mobile.ui.theme.EmeraldPrimary
 import com.ticketing.mobile.ui.theme.SurfaceContainer
@@ -42,10 +36,9 @@ import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 
 /**
  * Entry Activity chính của ứng dụng Dynamic QR Ticketing.
- * Điều hướng giữa 3 nhóm màn hình chính:
- * 1. Các Sự Kiện Hiện Tại (EventListScreen)
- * 2. Vé Của Tôi (MyTicketsListScreen) -> Chi tiết QR Checking (TicketDisplayScreen)
- * 3. Soát Vé Cổng (GateScannerScreen) với kết quả Thành công và Thất bại.
+ * Điều hướng giữa 2 nhóm màn hình người dùng:
+ * 1. Khám Phá Sự Kiện (EventListScreen)
+ * 2. Vé Của Tôi (MyTicketsListScreen) với Cửa Sổ Modal QR xoay liên tục.
  */
 class MainActivity : ComponentActivity() {
 
@@ -67,27 +60,14 @@ class MainActivity : ComponentActivity() {
         val getTicketDetailUseCase = GetTicketDetailUseCase(ticketRepository)
         val generateDynamicQrUseCase = GenerateDynamicQrUseCase(ticketRepository)
 
-        // Gate Scanner feature dependencies
-        val gateRemoteDataSource = DefaultGateRemoteDataSource()
-        val gateValidationRepository = GateValidationRepositoryImpl(
-            remoteDataSource = gateRemoteDataSource,
-            cryptoEngine = cryptoEngine,
-            isOfflineEnabled = false
-        )
-        val validateScannedTicketUseCase = ValidateScannedTicketUseCase(gateValidationRepository)
-
         setContent {
             DynamicQRTicketingTheme {
                 val ticketDisplayViewModel = remember {
                     TicketDisplayViewModel(getTicketDetailUseCase, generateDynamicQrUseCase)
                 }
-                val gateScannerViewModel = remember {
-                    GateScannerViewModel(validateScannedTicketUseCase)
-                }
 
                 DynamicQrAppNavigation(
-                    ticketDisplayViewModel = ticketDisplayViewModel,
-                    gateScannerViewModel = gateScannerViewModel
+                    ticketDisplayViewModel = ticketDisplayViewModel
                 )
             }
         }
@@ -96,8 +76,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun DynamicQrAppNavigation(
-    ticketDisplayViewModel: TicketDisplayViewModel,
-    gateScannerViewModel: GateScannerViewModel
+    ticketDisplayViewModel: TicketDisplayViewModel
 ) {
     var selectedTab by remember { mutableIntStateOf(1) } // Mặc định mở Tab "Vé Của Tôi"
 
@@ -134,20 +113,6 @@ fun DynamicQrAppNavigation(
                         unselectedTextColor = TextMediumEmphasis
                     )
                 )
-
-                // Tab 3: Soát Vé Cổng
-                NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = { Text(text = "📷", fontSize = 18.sp) },
-                    label = { Text("Soát Vé Cổng", fontSize = 11.sp, fontWeight = if (selectedTab == 2) FontWeight.Bold else FontWeight.Normal) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = CyanSecondary,
-                        selectedTextColor = CyanSecondary,
-                        indicatorColor = CyanSecondary.copy(alpha = 0.2f),
-                        unselectedTextColor = TextMediumEmphasis
-                    )
-                )
             }
         }
     ) { innerPadding ->
@@ -165,10 +130,6 @@ fun DynamicQrAppNavigation(
                 )
                 1 -> MyTicketsListScreen(
                     ticketDisplayViewModel = ticketDisplayViewModel
-                )
-                2 -> GateScannerScreen(
-                    viewModel = gateScannerViewModel,
-                    gateId = "GATE-EAST-01"
                 )
             }
         }
