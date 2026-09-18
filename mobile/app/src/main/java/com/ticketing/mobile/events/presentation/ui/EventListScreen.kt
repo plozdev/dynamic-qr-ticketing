@@ -68,6 +68,9 @@ import com.ticketing.mobile.ui.theme.SurfaceContainerHighest
 import com.ticketing.mobile.ui.theme.SurfaceContainerLow
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ticketing.mobile.events.presentation.EventViewModel
+
 /**
  * MÀN HÌNH 1: CÁC SỰ KIỆN HIỆN TẠI (Events Catalog Screen)
  * Thiết kế chuẩn Obsidian Pass, tối ưu UI Accessibility & Check Mode.
@@ -76,10 +79,16 @@ import com.ticketing.mobile.ui.theme.TextHighEmphasis
 @Composable
 fun EventListScreen(
     onEventSelected: (EventItem) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: EventViewModel? = null
 ) {
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("Tất cả") }
+    val state = viewModel?.uiState?.collectAsStateWithLifecycle()?.value
+
+    var localSearchQuery by remember { mutableStateOf("") }
+    var localSelectedCategory by remember { mutableStateOf("Tất cả") }
+
+    val searchQuery = state?.searchQuery ?: localSearchQuery
+    val selectedCategory = state?.selectedCategory ?: localSelectedCategory
 
     val categories = listOf(
         "Tất cả" to 124,
@@ -126,6 +135,8 @@ fun EventListScreen(
             )
         )
     }
+
+    val displayEvents = state?.filteredEvents ?: sampleEvents
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -200,7 +211,10 @@ fun EventListScreen(
             ) {
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    onValueChange = {
+                        localSearchQuery = it
+                        viewModel?.onSearchQueryChanged(it)
+                    },
                     placeholder = {
                         Text(
                             "Tìm kiếm sự kiện, nghệ sĩ, SVĐ...",
@@ -241,7 +255,10 @@ fun EventListScreen(
                     val isSelected = selectedCategory == cat
                     FilterChip(
                         selected = isSelected,
-                        onClick = { selectedCategory = cat },
+                        onClick = {
+                            localSelectedCategory = cat
+                            viewModel?.onCategorySelected(cat)
+                        },
                         label = {
                             Text(
                                 text = cat,
@@ -290,12 +307,12 @@ fun EventListScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("⚡", fontSize = 16.sp)
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Sắp Diễn Ra Tuần Này", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = TextHighEmphasis)
+                        Text("Sắp Diễn Ra", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = TextHighEmphasis)
                     }
-                    Text("Xem tất cả (8)", fontSize = 12.sp, color = EmeraldPrimaryFixed, fontWeight = FontWeight.Bold)
+                    Text("Tất cả (${displayEvents.size})", fontSize = 12.sp, color = EmeraldPrimaryFixed, fontWeight = FontWeight.Bold)
                 }
 
-                sampleEvents.forEach { event ->
+                displayEvents.forEach { event ->
                     EventCardItem(event = event, onSelect = { onEventSelected(event) })
                 }
             }

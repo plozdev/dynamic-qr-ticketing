@@ -13,5 +13,6 @@ data class EventItem(
     val remainingPercentage: Int,
     val isHotTrend: Boolean = false,
     val isDynamicPassSupported: Boolean = true,
-    val gateOpensAtDisplay: String = "18:00"
+    val gateOpensAtDisplay: String = "18:00",
+    val bannerUrl: String? = null
 )
