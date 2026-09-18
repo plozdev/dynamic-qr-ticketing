@@ -8,6 +8,8 @@ import com.ticketing.platform.ticketissuance.TicketVerificationExportedService;
 import com.ticketing.platform.ticketissuance.application.dto.DynamicQrDto;
 import com.ticketing.platform.ticketissuance.application.dto.IssueTicketCommand;
 import com.ticketing.platform.ticketissuance.application.dto.TicketSyncDto;
+import com.ticketing.platform.ticketissuance.api.dto.UserTicketResponse;
+import com.ticketing.platform.ticketissuance.application.port.in.GetUserTicketsUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.GenerateDynamicQrUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.IssueTicketUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.SyncTicketUseCase;
@@ -23,7 +25,11 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,7 +40,7 @@ import java.util.UUID;
 @Service
 @Transactional
 @RequiredArgsConstructor 
-public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynamicQrUseCase, SyncTicketUseCase, TicketVerificationExportedService {
+public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynamicQrUseCase, SyncTicketUseCase, GetUserTicketsUseCase, TicketVerificationExportedService {
 
     private final TicketRepository ticketRepository;
     private final EventCatalogExportedService eventCatalogService;
@@ -102,6 +108,61 @@ public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynami
                 ticket.getSecret().base64Key(),
                 Instant.now().getEpochSecond()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserTicketResponse> getUserTickets(UUID userId) {
+        List<Ticket> tickets = ticketRepository.findByUserId(userId);
+        Instant now = Instant.now();
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
+
+        return tickets.stream().map(ticket -> {
+            var eventSummary = eventCatalogService.getEventSummary(ticket.getEventId());
+            Instant startDateTime = eventSummary.startDateTime();
+            Instant endDateTime = eventSummary.endDateTime();
+            int checkInWindowMinutes = eventSummary.checkInWindowMinutes();
+            Instant checkInOpensAt = startDateTime.minus(Duration.ofMinutes(checkInWindowMinutes));
+
+            boolean isCheckInOpen = !now.isBefore(checkInOpensAt) && !now.isAfter(endDateTime);
+
+            String status;
+            String checkInNote;
+
+            if (ticket.getStatus() == TicketStatus.USED) {
+                status = "CHECKED_IN";
+                checkInNote = "Đã check-in qua cổng " + (ticket.getUsedAtGateId() != null ? ticket.getUsedAtGateId() : ticket.getGateInfo());
+            } else if (ticket.getStatus() == TicketStatus.REVOKED) {
+                status = "REVOKED";
+                checkInNote = "Vé đã bị thu hồi hoặc hủy";
+            } else if (isCheckInOpen) {
+                status = "READY_TO_CHECK_IN";
+                checkInNote = "Đang mở cửa check-in";
+            } else if (now.isAfter(endDateTime)) {
+                status = "REVOKED";
+                checkInNote = "Sự kiện đã kết thúc";
+            } else {
+                status = "NOT_YET_CHECK_IN";
+                checkInNote = "Cổng mở lúc " + timeFormatter.format(checkInOpensAt) + " (chưa thể check-in)";
+            }
+
+            return new UserTicketResponse(
+                    ticket.getId().value(),
+                    ticket.getEventId(),
+                    eventSummary.name(),
+                    eventSummary.venueName(),
+                    startDateTime,
+                    endDateTime,
+                    ticket.getCategoryName(),
+                    ticket.getSeatNumber(),
+                    ticket.getAttendeeName(),
+                    ticket.getGateInfo(),
+                    status,
+                    checkInOpensAt.getEpochSecond(),
+                    isCheckInOpen,
+                    checkInNote
+            );
+        }).toList();
     }
 
     // --- Boundary Service (TicketVerificationExportedService implementation) ---

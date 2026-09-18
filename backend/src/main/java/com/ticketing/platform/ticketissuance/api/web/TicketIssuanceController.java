@@ -5,6 +5,8 @@ import com.ticketing.platform.ticketissuance.api.dto.IssueTicketRequest;
 import com.ticketing.platform.ticketissuance.api.dto.TicketSyncResponse;
 import com.ticketing.platform.ticketissuance.application.dto.DynamicQrDto;
 import com.ticketing.platform.ticketissuance.application.dto.TicketSyncDto;
+import com.ticketing.platform.ticketissuance.api.dto.UserTicketResponse;
+import com.ticketing.platform.ticketissuance.application.port.in.GetUserTicketsUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.GenerateDynamicQrUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.IssueTicketUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.SyncTicketUseCase;
@@ -17,9 +19,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -34,6 +38,18 @@ public class TicketIssuanceController {
     private final IssueTicketUseCase issueTicketUseCase;
     private final GenerateDynamicQrUseCase generateDynamicQrUseCase;
     private final SyncTicketUseCase syncTicketUseCase;
+    private final GetUserTicketsUseCase getUserTicketsUseCase;
+
+    @GetMapping
+    public ResponseEntity<List<UserTicketResponse>> getMyTickets(
+            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
+            @RequestParam(value = "userId", required = false) UUID userIdParam) {
+        UUID effectiveUserId = userIdHeader != null ? userIdHeader : userIdParam;
+        if (effectiveUserId == null) {
+            effectiveUserId = UUID.fromString("11111111-2222-3333-4444-555555555555");
+        }
+        return ResponseEntity.ok(getUserTicketsUseCase.getUserTickets(effectiveUserId));
+    }
 
     @PostMapping("/issue")
     public ResponseEntity<Map<String, Object>> issueTicket(@Valid @RequestBody IssueTicketRequest request) {

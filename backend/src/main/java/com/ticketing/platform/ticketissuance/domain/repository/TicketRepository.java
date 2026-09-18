@@ -13,4 +13,6 @@ public interface TicketRepository {
     void save(Ticket ticket);
 
     Optional<Ticket> findById(TicketId id);
+
+    java.util.List<Ticket> findByUserId(java.util.UUID userId);
 }

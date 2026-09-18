@@ -32,6 +32,13 @@ public class TicketRepositoryAdapter implements TicketRepository {
         return jpaRepository.findById(id.value()).map(this::toDomain);
     }
 
+    @Override
+    public java.util.List<Ticket> findByUserId(java.util.UUID userId) {
+        return jpaRepository.findByUserIdOrderByIssuedAtDesc(userId).stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
     private TicketJpaEntity toEntity(Ticket ticket) {
         return TicketJpaEntity.builder()
                 .id(ticket.getId().value())
@@ -43,6 +50,9 @@ public class TicketRepositoryAdapter implements TicketRepository {
                 .issuedAt(ticket.getIssuedAt())
                 .usedAt(ticket.getUsedAt())
                 .usedAtGateId(ticket.getUsedAtGateId())
+                .seatNumber(ticket.getSeatNumber())
+                .attendeeName(ticket.getAttendeeName())
+                .gateInfo(ticket.getGateInfo())
                 .build();
     }
     
@@ -56,7 +66,10 @@ public class TicketRepositoryAdapter implements TicketRepository {
                 t.getStatus(),
                 t.getIssuedAt(),
                 t.getUsedAt(),
-                t.getUsedAtGateId()
+                t.getUsedAtGateId(),
+                t.getSeatNumber(),
+                t.getAttendeeName(),
+                t.getGateInfo()
         );
     }
 }

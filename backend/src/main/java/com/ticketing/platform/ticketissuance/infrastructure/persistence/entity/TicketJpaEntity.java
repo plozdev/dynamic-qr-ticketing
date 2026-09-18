@@ -53,4 +53,13 @@ public class TicketJpaEntity {
 
     @Column(name = "used_at_gate_id")
     private String usedAtGateId;
+
+    @Column(name = "seat_number", nullable = false)
+    private String seatNumber;
+
+    @Column(name = "attendee_name", nullable = false)
+    private String attendeeName;
+
+    @Column(name = "gate_info", nullable = false)
+    private String gateInfo;
 }

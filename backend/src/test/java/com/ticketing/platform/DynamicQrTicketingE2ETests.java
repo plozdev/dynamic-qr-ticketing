@@ -61,10 +61,15 @@ class DynamicQrTicketingE2ETests {
         JsonNode eventNode = objectMapper.readTree(eventResult.getResponse().getContentAsString());
         String eventId = eventNode.get("id").asText();
 
-        // 2. Get Event By Id
+        // 2. Get Event By Id & List Events
         mockMvc.perform(get("/api/v1/events/" + eventId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Grand Symphony Live"));
+
+        mockMvc.perform(get("/api/v1/events"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(1))))
+                .andExpect(jsonPath("$[?(@.id == '" + eventId + "')].name").value("Grand Symphony Live"));
 
         // 3. Issue Ticket
         UUID userId = UUID.randomUUID();
@@ -84,6 +89,17 @@ class DynamicQrTicketingE2ETests {
 
         JsonNode ticketNode = objectMapper.readTree(ticketResult.getResponse().getContentAsString());
         String ticketId = ticketNode.get("ticketId").asText();
+
+        // 3b. List User Tickets (My Tickets)
+        mockMvc.perform(get("/api/v1/tickets")
+                        .header("X-User-Id", userId.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].ticketId").value(ticketId))
+                .andExpect(jsonPath("$[0].eventName").value("Grand Symphony Live"))
+                .andExpect(jsonPath("$[0].venueName").value("My Dinh National Stadium"))
+                .andExpect(jsonPath("$[0].categoryName").value("VIP_ZONE"))
+                .andExpect(jsonPath("$[0].status").isNotEmpty());
 
         // 4. Mobile Key Sync (Provisioning)
         mockMvc.perform(get("/api/v1/tickets/" + ticketId + "/sync")
