@@ -2,7 +2,6 @@ package com.ticketing.mobile.events.presentation.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,15 +10,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -28,7 +32,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -44,28 +49,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ticketing.mobile.events.domain.model.EventItem
-import com.ticketing.mobile.ui.theme.AmberTertiary
-import com.ticketing.mobile.ui.theme.CyanSecondary
+import com.ticketing.mobile.ui.theme.CyanSecondaryFixed
 import com.ticketing.mobile.ui.theme.DynamicQRTicketingTheme
 import com.ticketing.mobile.ui.theme.EmeraldPrimary
-import com.ticketing.mobile.ui.theme.FieryError
+import com.ticketing.mobile.ui.theme.EmeraldPrimaryFixed
 import com.ticketing.mobile.ui.theme.ObsidianVoid
 import com.ticketing.mobile.ui.theme.SurfaceContainer
 import com.ticketing.mobile.ui.theme.SurfaceContainerHigh
 import com.ticketing.mobile.ui.theme.SurfaceContainerHighest
 import com.ticketing.mobile.ui.theme.SurfaceContainerLow
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
-import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 
 /**
  * MÀN HÌNH 1: CÁC SỰ KIỆN HIỆN TẠI (Events Catalog Screen)
- * Thiết kế chuẩn Obsidian Pass theo nguyên mẫu Stitch Prototype.
+ * Thiết kế chuẩn Obsidian Pass, tối ưu UI Accessibility & Check Mode.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,7 +148,35 @@ fun EventListScreen(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text("SecureTix", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TextHighEmphasis)
-                            Text("TẤT CẢ SỰ KIỆN", fontSize = 10.sp, color = EmeraldPrimary, fontWeight = FontWeight.SemiBold)
+                            Text("TẤT CẢ SỰ KIỆN", fontSize = 10.sp, color = EmeraldPrimaryFixed, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                },
+                actions = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.padding(end = 6.dp)
+                    ) {
+                        IconButton(
+                            onClick = { /* TODO: Search */ },
+                            modifier = Modifier.semantics { contentDescription = "Tìm kiếm sự kiện" }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = TextHighEmphasis
+                            )
+                        }
+                        IconButton(
+                            onClick = { /* TODO: Notifications */ },
+                            modifier = Modifier.semantics { contentDescription = "Xem thông báo mới" }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = null,
+                                tint = TextHighEmphasis
+                            )
                         }
                     }
                 }
@@ -155,16 +188,36 @@ fun EventListScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
+                .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
             // --- 1. THANH TÌM KIẾM ---
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Tìm kiếm hơn 120+ sự kiện, nghệ sĩ, SVĐ...", fontSize = 13.sp, color = TextMediumEmphasis) },
-                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(
+                            "Tìm kiếm sự kiện, nghệ sĩ, SVĐ...",
+                            fontSize = 13.sp,
+                            color = Color(0xFFCBD5E1)
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = Color(0xFFCBD5E1)
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 560.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = SurfaceContainerHighest,
@@ -190,76 +243,38 @@ fun EventListScreen(
                         selected = isSelected,
                         onClick = { selectedCategory = cat },
                         label = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(cat, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(CircleShape)
-                                        .background(if (isSelected) ObsidianVoid.copy(alpha = 0.3f) else SurfaceContainerHighest)
-                                        .padding(horizontal = 5.dp, vertical = 1.dp)
-                                ) {
-                                    Text("$count", fontSize = 10.sp, color = if (isSelected) ObsidianVoid else TextMediumEmphasis)
-                                }
+                            Text(
+                                text = cat,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        trailingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) Color(0xFF002B1B) else SurfaceContainerHighest)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "$count",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) EmeraldPrimaryFixed else Color(0xFFF1F5F9)
+                                )
                             }
                         },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = EmeraldPrimary,
-                            selectedLabelColor = ObsidianVoid,
+                            selectedLabelColor = Color(0xFF002B1B),
                             containerColor = SurfaceContainerHigh,
-                            labelColor = TextMediumEmphasis
+                            labelColor = Color(0xFFF1F5F9)
                         ),
                         border = null,
                         shape = RoundedCornerShape(16.dp)
                     )
                 }
                 item { Spacer(modifier = Modifier.width(8.dp)) }
-            }
-
-            // --- 3. BANNER BẢO MẬT OBSIDIAN PASS ---
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceContainerLow),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(EmeraldPrimary.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("🔒", fontSize = 18.sp)
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Mã hóa Obsidian Pass™", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = TextHighEmphasis)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(EmeraldPrimary.copy(alpha = 0.2f))
-                                    .padding(horizontal = 4.dp, vertical = 1.dp)
-                            ) {
-                                Text("BẢO MẬT CAO", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = EmeraldPrimary)
-                            }
-                        }
-                        Text(
-                            "Mã QR xoay liên tục 30s chống chụp màn hình và hỗ trợ xác thực Offline siêu tốc.",
-                            fontSize = 11.sp,
-                            color = TextMediumEmphasis,
-                            lineHeight = 15.sp,
-                            modifier = Modifier.padding(top = 2.dp)
-                        )
-                    }
-                }
             }
 
             // --- 4. DANH SÁCH SỰ KIỆN NỔI BẬT ---
@@ -277,13 +292,15 @@ fun EventListScreen(
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("Sắp Diễn Ra Tuần Này", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = TextHighEmphasis)
                     }
-                    Text("Xem tất cả (8)", fontSize = 12.sp, color = EmeraldPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Xem tất cả (8)", fontSize = 12.sp, color = EmeraldPrimaryFixed, fontWeight = FontWeight.Bold)
                 }
 
                 sampleEvents.forEach { event ->
                     EventCardItem(event = event, onSelect = { onEventSelected(event) })
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -296,8 +313,7 @@ fun EventCardItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable { onSelect() },
+            .clip(RoundedCornerShape(14.dp)),
         colors = CardDefaults.cardColors(containerColor = SurfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -323,20 +339,20 @@ fun EventCardItem(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(ObsidianVoid.copy(alpha = 0.8f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .background(ObsidianVoid.copy(alpha = 0.9f))
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
-                            Text("🔄 Dynamic Pass", fontSize = 10.sp, color = EmeraldPrimary, fontWeight = FontWeight.Bold)
+                            Text("🔄 Dynamic Pass", fontSize = 10.sp, color = EmeraldPrimaryFixed, fontWeight = FontWeight.Bold)
                         }
                     }
                     if (event.remainingPercentage <= 15) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(FieryError.copy(alpha = 0.85f))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .background(Color(0xFFDC2626))
+                                .padding(horizontal = 6.dp, vertical = 3.dp)
                         ) {
-                            Text("Còn ${event.remainingPercentage}% vé", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            Text("Sắp hết", fontSize = 10.sp, color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -356,14 +372,15 @@ fun EventCardItem(
                 Text(
                     text = "📍 ${event.venue}",
                     fontSize = 12.sp,
-                    color = TextMediumEmphasis,
+                    color = Color(0xFFCBD5E1),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "📅 ${event.dateDisplay}",
                     fontSize = 12.sp,
-                    color = CyanSecondary,
+                    color = CyanSecondaryFixed,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(top = 2.dp)
                 )
 
@@ -378,15 +395,20 @@ fun EventCardItem(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("Giá vé từ", fontSize = 10.sp, color = TextMediumEmphasis)
-                        Text(event.priceDisplay, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = EmeraldPrimary)
+                        Text("Giá vé từ", fontSize = 11.sp, color = Color(0xFFCBD5E1))
+                        Text(event.priceDisplay, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = EmeraldPrimaryFixed)
                     }
                     Button(
                         onClick = onSelect,
+                        modifier = Modifier
+                            .heightIn(min = 44.dp)
+                            .semantics {
+                                contentDescription = "Chọn vé sự kiện ${event.title}, giá ${event.priceDisplay}"
+                            },
                         colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Chọn vé", color = ObsidianVoid, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("Chọn vé", color = Color(0xFF002B1B), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
             }
