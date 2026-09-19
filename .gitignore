@@ -19,3 +19,9 @@ Desktop.ini
 
 # Documentation & Internal Design Specs
 docs/
+
+# Firebase & Cloud Credentials
+*google-services.json
+*firebase-service-account*.json
+*service-account*.json
+firebase-credentials.json
