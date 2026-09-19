@@ -4,6 +4,8 @@ import com.ticketing.mobile.core_crypto.domain.repository.ICryptoEngine
 import com.ticketing.mobile.core_network.model.NetworkResult
 import com.ticketing.mobile.ticket_display.data.datasource.ITicketLocalDataSource
 import com.ticketing.mobile.ticket_display.data.datasource.ITicketRemoteDataSource
+import com.ticketing.mobile.ticket_display.data.datasource.PersistentTicketLocalDataSource
+import com.ticketing.mobile.ticket_display.data.dto.EventItemDto
 import com.ticketing.mobile.ticket_display.data.mapper.TicketMapper
 import com.ticketing.mobile.ticket_display.domain.model.DynamicQrData
 import com.ticketing.mobile.ticket_display.domain.model.Ticket
@@ -54,7 +56,35 @@ class TicketRepositoryImpl(
     override suspend fun getMyTickets(userId: String): Result<List<com.ticketing.mobile.ticket_display.domain.model.UserTicketItem>> {
         return when (val networkResult = remoteDataSource.fetchMyTickets(userId)) {
             is NetworkResult.Success -> {
+                if (localDataSource is PersistentTicketLocalDataSource) {
+                    localDataSource.saveUserTickets(networkResult.data)
+                }
                 Result.success(networkResult.data)
+            }
+            is NetworkResult.Error -> {
+                if (localDataSource is PersistentTicketLocalDataSource) {
+                    val cached = localDataSource.getAllCachedUserTickets()
+                    if (cached.isNotEmpty()) {
+                        return Result.success(cached)
+                    }
+                }
+                Result.failure(Exception(networkResult.error.messageText, networkResult.error.causeThrowable))
+            }
+            is NetworkResult.Loading -> {
+                Result.failure(IllegalStateException("Network request still loading"))
+            }
+        }
+    }
+
+    override suspend fun claimTicket(
+        eventId: String,
+        categoryName: String?,
+        attendeeName: String?
+    ): Result<Ticket> {
+        return when (val networkResult = remoteDataSource.claimTicket(eventId, categoryName, attendeeName)) {
+            is NetworkResult.Success -> {
+                localDataSource.saveTicket(networkResult.data)
+                Result.success(TicketMapper.toDomain(networkResult.data))
             }
             is NetworkResult.Error -> {
                 Result.failure(Exception(networkResult.error.messageText, networkResult.error.causeThrowable))
@@ -62,6 +92,14 @@ class TicketRepositoryImpl(
             is NetworkResult.Loading -> {
                 Result.failure(IllegalStateException("Network request still loading"))
             }
+        }
+    }
+
+    override suspend fun getEvents(): Result<List<EventItemDto>> {
+        return when (val networkResult = remoteDataSource.fetchEvents()) {
+            is NetworkResult.Success -> Result.success(networkResult.data)
+            is NetworkResult.Error -> Result.failure(Exception(networkResult.error.messageText, networkResult.error.causeThrowable))
+            is NetworkResult.Loading -> Result.failure(IllegalStateException("Loading events"))
         }
     }
 

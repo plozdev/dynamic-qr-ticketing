@@ -3,6 +3,7 @@ package com.ticketing.mobile.ticket_display.data.datasource
 import com.ticketing.mobile.core_network.client.IApiClient
 import com.ticketing.mobile.core_network.client.OkHttpApiClient
 import com.ticketing.mobile.core_network.model.NetworkResult
+import com.ticketing.mobile.ticket_display.data.dto.EventItemDto
 import com.ticketing.mobile.ticket_display.data.dto.TicketDto
 import com.ticketing.mobile.ticket_display.domain.model.UserTicketCheckInStatus
 import com.ticketing.mobile.ticket_display.domain.model.UserTicketItem
@@ -90,6 +91,64 @@ class DefaultTicketRemoteDataSource(
                 )
             }
             tickets
+        }
+    }
+
+    override suspend fun claimTicket(
+        eventId: String,
+        categoryName: String?,
+        attendeeName: String?
+    ): NetworkResult<TicketDto> {
+        val payload = org.json.JSONObject().apply {
+            if (!categoryName.isNullOrBlank()) put("categoryName", categoryName)
+            if (!attendeeName.isNullOrBlank()) put("attendeeName", attendeeName)
+        }
+
+        return apiClient.post(
+            endpoint = "/events/$eventId/claim",
+            bodyJson = payload.toString()
+        ) { jsonStr ->
+            val obj = org.json.JSONObject(jsonStr)
+            val ticketId = obj.optString("ticketId")
+            TicketDto(
+                ticketId = ticketId,
+                eventTitle = obj.optString("eventName", "Sự Kiện"),
+                location = obj.optString("venueName", "Chưa xác định"),
+                eventEpochSeconds = try {
+                    Instant.parse(obj.optString("startDateTime")).epochSecond
+                } catch (e: Exception) {
+                    System.currentTimeMillis() / 1000
+                },
+                seatCode = obj.optString("seatNumber", "GA-01"),
+                customerFullName = obj.optString("attendeeName", "Khán Giả"),
+                statusCode = obj.optString("status", "ACTIVE"),
+                secretKey = obj.optString("secretKeyBase64").takeIf { it.isNotBlank() }
+            )
+        }
+    }
+
+    override suspend fun fetchEvents(): NetworkResult<List<EventItemDto>> {
+        return apiClient.get(endpoint = "/events") { jsonStr ->
+            val jsonArray = JSONArray(jsonStr)
+            val events = mutableListOf<EventItemDto>()
+            for (i in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(i)
+                events.add(
+                    EventItemDto(
+                        id = obj.optString("id"),
+                        name = obj.optString("name", "Sự Kiện"),
+                        description = obj.optString("description"),
+                        venueName = obj.optString("venueName"),
+                        category = obj.optString("category", "Âm nhạc & Concert"),
+                        basePrice = obj.optDouble("basePrice", 450000.0),
+                        totalTickets = obj.optInt("totalTickets", 1000),
+                        availableTickets = obj.optInt("availableTickets", 850),
+                        bannerUrl = obj.optString("bannerUrl").takeIf { it.isNotBlank() },
+                        isHotTrend = obj.optBoolean("isHotTrend", false)
+                    )
+                )
+            }
+            events
         }
     }
 }

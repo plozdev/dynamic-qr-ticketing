@@ -11,15 +11,19 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
+import com.ticketing.mobile.ticket_display.domain.usecase.ClaimTicketUseCase
+import com.ticketing.mobile.ticket_display.domain.usecase.GetEventsUseCase
 import com.ticketing.mobile.ticket_display.domain.usecase.GetMyTicketsUseCase
 
 /**
- * ViewModel quản lý màn hình Hiển thị vé (TicketDisplayScreen) theo mô hình MVI.
+ * ViewModel quản lý màn hình Hiển thị vé (TicketDisplayScreen) và Nhận vé theo mô hình MVI.
  */
 class TicketDisplayViewModel(
     private val getTicketDetailUseCase: GetTicketDetailUseCase,
     private val generateDynamicQrUseCase: GenerateDynamicQrUseCase,
-    private val getMyTicketsUseCase: GetMyTicketsUseCase? = null
+    private val getMyTicketsUseCase: GetMyTicketsUseCase? = null,
+    private val claimTicketUseCase: ClaimTicketUseCase? = null,
+    private val getEventsUseCase: GetEventsUseCase? = null
 ) : BaseViewModel<TicketDisplayState, TicketDisplayIntent, TicketDisplayEffect>(
     initialState = TicketDisplayState()
 ) {
@@ -28,6 +32,7 @@ class TicketDisplayViewModel(
 
     init {
         loadMyTickets()
+        loadEvents()
     }
 
     override fun handleIntent(intent: TicketDisplayIntent) {
@@ -66,6 +71,34 @@ class TicketDisplayViewModel(
                 }
                 .onFailure { error ->
                     setState { copy(isLoading = false, errorMessage = error.message ?: "Failed to load tickets") }
+                }
+        }
+    }
+
+    fun loadEvents() {
+        if (getEventsUseCase == null) return
+        viewModelScope.launch {
+            getEventsUseCase()
+                .onSuccess { events ->
+                    setState { copy(availableEvents = events) }
+                }
+        }
+    }
+
+    fun claimTicket(eventId: String, categoryName: String? = null, onResult: ((Boolean, String?) -> Unit)? = null) {
+        if (claimTicketUseCase == null) return
+        viewModelScope.launch {
+            setState { copy(isClaiming = true) }
+            claimTicketUseCase(eventId, categoryName)
+                .onSuccess {
+                    setState { copy(isClaiming = false) }
+                    loadMyTickets()
+                    loadEvents()
+                    onResult?.invoke(true, null)
+                }
+                .onFailure { error ->
+                    setState { copy(isClaiming = false) }
+                    onResult?.invoke(false, error.message ?: "Không thể nhận vé sự kiện")
                 }
         }
     }

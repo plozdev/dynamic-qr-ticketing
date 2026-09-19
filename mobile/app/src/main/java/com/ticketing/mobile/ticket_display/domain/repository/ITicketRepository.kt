@@ -25,6 +25,16 @@ interface ITicketRepository {
     suspend fun getMyTickets(userId: String = "11111111-2222-3333-4444-555555555555"): Result<List<com.ticketing.mobile.ticket_display.domain.model.UserTicketItem>>
 
     /**
+     * 1-Click claim ticket for an event.
+     */
+    suspend fun claimTicket(eventId: String, categoryName: String? = null, attendeeName: String? = null): Result<Ticket>
+
+    /**
+     * Get list of published events for discovery.
+     */
+    suspend fun getEvents(): Result<List<com.ticketing.mobile.ticket_display.data.dto.EventItemDto>>
+
+    /**
      * Continuously stream dynamic QR updates every rotation cycle.
      */
     fun observeDynamicQr(ticketId: String): Flow<DynamicQrData>
