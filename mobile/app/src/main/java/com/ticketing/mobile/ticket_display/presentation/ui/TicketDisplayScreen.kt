@@ -1,6 +1,12 @@
 package com.ticketing.mobile.ticket_display.presentation.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -16,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,16 +33,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -49,14 +59,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -65,31 +81,30 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ticketing.mobile.ticket_display.domain.model.DynamicQrData
 import com.ticketing.mobile.ticket_display.domain.model.Ticket
 import com.ticketing.mobile.ticket_display.domain.model.TicketStatus
+import com.ticketing.mobile.ticket_display.domain.model.UserTicketCheckInStatus
+import com.ticketing.mobile.ticket_display.domain.model.UserTicketItem
 import com.ticketing.mobile.ticket_display.presentation.TicketDisplayViewModel
 import com.ticketing.mobile.ticket_display.presentation.contract.TicketDisplayIntent
-import com.ticketing.mobile.ticket_display.presentation.contract.TicketDisplayState
 import com.ticketing.mobile.ui.theme.AmberTertiary
 import com.ticketing.mobile.ui.theme.CyanSecondary
 import com.ticketing.mobile.ui.theme.DynamicQRTicketingTheme
 import com.ticketing.mobile.ui.theme.EmeraldPrimary
 import com.ticketing.mobile.ui.theme.FieryError
 import com.ticketing.mobile.ui.theme.ObsidianVoid
-import com.ticketing.mobile.ui.theme.SurfaceContainer
 import com.ticketing.mobile.ui.theme.SurfaceContainerHigh
-import com.ticketing.mobile.ui.theme.SurfaceContainerHighest
-import com.ticketing.mobile.ui.theme.SurfaceContainerLow
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 
-import com.ticketing.mobile.ticket_display.domain.model.UserTicketItem
-import com.ticketing.mobile.ticket_display.domain.model.UserTicketCheckInStatus
-
+/**
+ * Cửa sổ trượt lên hiển thị Dynamic QR Card dạng vé theo thiết kế Obsidian Pass.
+ */
 @Composable
 fun TicketQrSlideUpModal(
     ticketId: String,
     viewModel: TicketDisplayViewModel,
-    ticketItem: UserTicketItem? = null,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    ticketItem: UserTicketItem? = null
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -108,76 +123,90 @@ fun TicketQrSlideUpModal(
             dismissOnClickOutside = true
         )
     ) {
-        // Nền mờ (scrim overlay) toàn màn hình, bấm ra ngoài để đóng
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.7f))
+                .background(Color.Black.copy(alpha = 0.75f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) {
                     viewModel.handleIntent(TicketDisplayIntent.StopQrObservation)
                     onDismiss()
-                },
-            contentAlignment = Alignment.BottomCenter
+                }
+                .padding(horizontal = 16.dp, vertical = 20.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Hiệu ứng cửa sổ trượt từ dưới lên
             AnimatedVisibility(
                 visible = true,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                enter = slideInVertically(initialOffsetY = { it / 2 }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it / 2 }) + fadeOut()
             ) {
-                TicketQrPopupModalCard(
-                    ticketId = ticketId,
-                    ticket = state.ticket,
-                    ticketItem = ticketItem,
-                    dynamicQr = state.dynamicQr,
-                    isLoading = state.isLoading,
-                    errorMessage = state.errorMessage,
-                    onRefreshQr = { viewModel.handleIntent(TicketDisplayIntent.RefreshQrRequested) },
-                    onClose = {
-                        viewModel.handleIntent(TicketDisplayIntent.StopQrObservation)
-                        onDismiss()
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 20.dp)
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    // Nút đóng nhanh phía trên card
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp, end = 4.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        IconButton(
+                            onClick = {
+                                viewModel.handleIntent(TicketDisplayIntent.StopQrObservation)
+                                onDismiss()
+                            },
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1F2937))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Đóng",
+                                tint = TextHighEmphasis,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    TicketQrPopupModalCard(
+                        ticketId = ticketId,
+                        ticket = state.ticket,
+                        onClose = {
+                            viewModel.handleIntent(TicketDisplayIntent.StopQrObservation)
+                            onDismiss()
+                        },
+                        ticketItem = ticketItem,
+                        dynamicQr = state.dynamicQr,
+                        isLoading = state.isLoading,
+                        errorMessage = state.errorMessage,
+                        onRefreshQr = { viewModel.handleIntent(TicketDisplayIntent.RefreshQrRequested) }
+                    )
+                }
             }
         }
     }
 }
 
 /**
- * Alias cho TicketQrSlideUpModal để tương thích ngược.
- */
-@Composable
-fun TicketQrBottomSheetModal(
-    ticketId: String,
-    viewModel: TicketDisplayViewModel,
-    onDismiss: () -> Unit
-) {
-    TicketQrSlideUpModal(
-        ticketId = ticketId,
-        viewModel = viewModel,
-        onDismiss = onDismiss
-    )
-}
-
-/**
- * Thẻ giao diện Card của cửa sổ Modal / Pop-up QR.
- * Thiết kế tinh giản, chỉ chứa mã QR và các thông tin cơ bản phục vụ check-in nhanh.
+ * Thẻ Card Dynamic Pass chuẩn theo thiết kế layout nguyên mẫu (img.png).
  */
 @Composable
 fun TicketQrPopupModalCard(
     ticketId: String,
     ticket: Ticket?,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
     ticketItem: UserTicketItem? = null,
-    dynamicQr: DynamicQrData?,
+    dynamicQr: DynamicQrData? = null,
     isLoading: Boolean = false,
     errorMessage: String? = null,
-    onRefreshQr: () -> Unit = {},
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier
+    onRefreshQr: () -> Unit = {}
 ) {
     val displayStatus = when {
         ticketItem?.status == UserTicketCheckInStatus.NOT_YET_CHECK_IN -> TicketStatus.EXPIRED
@@ -189,135 +218,160 @@ fun TicketQrPopupModalCard(
         else -> TicketStatus.ACTIVE
     }
 
+    val tierTitle = (ticketItem?.tierName ?: "VIP DIAMOND - FANZONE A").uppercase()
+    val ticketNumber = if (ticketId.startsWith("#TKT-")) ticketId else "#TKT-${ticketId.takeLast(4).uppercase().ifEmpty { "9901" }}"
+    val eventTitle = ticketItem?.eventName ?: ticket?.eventName ?: "HÀ NỘI ROCK FEST 2026"
+    val dateLocation = "${ticketItem?.dateDisplay ?: "24/10/2026 - 19:30"} • ${ticketItem?.venue ?: "Sân Vận Động Mỹ Đình"}"
+    val gateInfo = ticketItem?.gateInfo?.ifEmpty { "GATE A1" } ?: "GATE A1"
+    val zoneInfo = if (tierTitle.contains("FANZONE") || tierTitle.contains("ZONE")) "ZONE A" else "KHU VỰC"
+    val seatInfo = ticketItem?.seatNumber?.ifEmpty { "A1-042" } ?: ticket?.seatNumber ?: "A1-042"
+    val attendeeName = ticketItem?.attendeeName?.ifEmpty { "Nguyễn Văn An" } ?: ticket?.ticketHolderName ?: "Nguyễn Văn An"
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
-            ) { /* Ngăn chặn bấm xuyên thấu thẻ */ },
+            ) { /* Chống bấm xuyên qua card */ },
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceContainer),
-        border = BorderStroke(
-            1.5.dp,
-            if (displayStatus == TicketStatus.ACTIVE) EmeraldPrimary.copy(alpha = 0.35f) else AmberTertiary.copy(alpha = 0.35f)
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF141B2B)),
+        border = BorderStroke(1.dp, Color(0xFF232A3A)),
         elevation = CardDefaults.cardElevation(defaultElevation = 16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Thanh tay nắm kéo trượt (Drag Handle hint)
-            Box(
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // ==========================================
+            // 1. TOP SECTION (Header badge + Event info)
+            // ==========================================
+            Column(
                 modifier = Modifier
-                    .size(width = 38.dp, height = 4.dp)
-                    .clip(CircleShape)
-                    .background(SurfaceContainerHighest)
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Header cửa sổ: Tên sự kiện & Hạng vé & Nút đóng
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp)
+                    .padding(top = 18.dp, bottom = 14.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = ticketItem?.eventName ?: ticket?.eventName ?: "Sự Kiện Check-in",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = TextHighEmphasis,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 4.dp)
+                // Hàng tiêu đề: Badge Hạng vé & Mã vé #TKT kèm nút đóng
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF0F3627))
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(if (displayStatus == TicketStatus.ACTIVE) EmeraldPrimary else AmberTertiary)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = ticketItem?.tierName ?: "Vé Tiêu Chuẩn",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (displayStatus == TicketStatus.ACTIVE) EmeraldPrimary else AmberTertiary
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "•",
-                            fontSize = 12.sp,
-                            color = TextMediumEmphasis
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "#TKT-${ticketId.takeLast(6).uppercase()}",
+                            text = tierTitle,
                             fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EmeraldPrimary,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = ticketNumber,
+                            fontSize = 12.sp,
                             fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
                             color = TextMediumEmphasis
                         )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(
+                            onClick = onClose,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Đóng",
+                                tint = TextMediumEmphasis,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
 
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceContainerHighest)
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Thông tin sự kiện: Ảnh Thumbnail + Tên sự kiện + Ngày giờ & Địa điểm
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("✕", color = TextHighEmphasis, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    ConcertThumbnail()
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = eventTitle,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = TextHighEmphasis,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = dateLocation,
+                            fontSize = 11.5.sp,
+                            color = TextMediumEmphasis,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            lineHeight = 16.sp
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            // ==========================================
+            // 2. TICKET PERFORATION DIVIDER (Đường cắt xé vé)
+            // ==========================================
+            TicketPerforationDivider(
+                cutoutRadius = 11.dp,
+                cutoutColor = ObsidianVoid,
+                dashColor = Color(0xFF2E3545)
+            )
 
-            // Phần thân chính: Loading, Lỗi, hoặc Mã QR
-            when {
-                isLoading && ticket == null && ticketItem == null -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 36.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        CircularProgressIndicator(color = EmeraldPrimary, strokeWidth = 3.dp)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("Đang nạp mã vé bảo mật...", color = TextMediumEmphasis, fontSize = 12.sp)
+            // ==========================================
+            // 3. MAIN SECTION (QR + Countdown + Security)
+            // ==========================================
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp)
+                    .padding(top = 16.dp, bottom = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                when {
+                    isLoading && ticket == null && ticketItem == null -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(260.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            CircularProgressIndicator(color = EmeraldPrimary, strokeWidth = 3.dp)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("Đang nạp mã vé bảo mật...", color = TextMediumEmphasis, fontSize = 12.sp)
+                        }
                     }
-                }
-                errorMessage != null && ticket == null && ticketItem == null -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 20.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(text = "Lỗi: $errorMessage", color = FieryError, fontSize = 12.sp)
+                    errorMessage != null && ticket == null && ticketItem == null -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(text = "Lỗi: $errorMessage", color = FieryError, fontSize = 12.sp)
+                        }
                     }
-                }
-                else -> {
-                    // Hộp hiển thị mã QR tinh giản
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(SurfaceContainerLow)
-                            .padding(12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    else -> {
                         when (displayStatus) {
                             TicketStatus.ACTIVE -> {
-                                CompactActiveDynamicQr(
+                                ActiveDynamicQrSection(
                                     ticketId = ticketId,
                                     dynamicQr = dynamicQr,
                                     onRefreshQr = onRefreshQr
@@ -328,8 +382,8 @@ fun TicketQrPopupModalCard(
                             }
                             TicketStatus.CHECKED_IN -> {
                                 CompactCheckedInQr(
-                                    attendeeName = ticketItem?.attendeeName ?: ticket?.ticketHolderName ?: "Khách mời",
-                                    seatCode = ticketItem?.seatNumber ?: ticket?.seatNumber ?: "VIP-A12"
+                                    attendeeName = attendeeName,
+                                    seatCode = seatInfo
                                 )
                             }
                             TicketStatus.REVOKED -> {
@@ -337,184 +391,388 @@ fun TicketQrPopupModalCard(
                             }
                         }
                     }
+                }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    // Bảng thông tin cơ bản: Khách hàng & Vị trí ghế
-                    Row(
+                // ==========================================
+                // 4. 3-COLUMN TELEMETRY GRID (Cổng - Khu vực - Số ghế)
+                // ==========================================
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Box 1: CỔNG VÀO
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(SurfaceContainerHigh)
-                            .padding(horizontal = 14.dp, vertical = 9.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF0F1726))
+                            .padding(vertical = 10.dp, horizontal = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column {
-                            Text("KHÁCH HÀNG", fontSize = 9.sp, color = TextMediumEmphasis, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                text = ticketItem?.attendeeName ?: ticket?.ticketHolderName ?: "Nguyễn Hoàng Long",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextHighEmphasis
-                            )
-                        }
-
-                        Column(horizontalAlignment = Alignment.End) {
-                            Text("VỊ TRÍ GHẾ", fontSize = 9.sp, color = TextMediumEmphasis, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                text = "${ticketItem?.gateInfo ?: "CỔNG A1"} • ${ticketItem?.seatNumber ?: ticket?.seatNumber ?: "VIP-A12"}",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CyanSecondary
-                            )
-                        }
+                        Text(
+                            text = "CỔNG VÀO",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextMediumEmphasis
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = gateInfo,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextHighEmphasis
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // Box 2: KHU VỰC
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF0F1726))
+                            .padding(vertical = 10.dp, horizontal = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "KHU VỰC",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextMediumEmphasis
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = zoneInfo,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = CyanSecondary
+                        )
+                    }
 
-                    // Dòng chỉ dẫn nhanh
+                    // Box 3: SỐ GHẾ
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF0F1726))
+                            .padding(vertical = 10.dp, horizontal = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "SỐ GHẾ",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextMediumEmphasis
+                        )
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = seatInfo,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = EmeraldPrimary
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // ==========================================
+                // 5. ATTENDEE STRIP (Khách hàng & CCCD)
+                // ==========================================
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0F1726))
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = TextMediumEmphasis,
+                            modifier = Modifier.size(17.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = attendeeName,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextHighEmphasis
+                        )
+                    }
+
                     Text(
-                        text = if (displayStatus == TicketStatus.ACTIVE) {
-                            "💡 Đưa mã QR vào máy quét tại cổng để vào sự kiện"
-                        } else if (displayStatus == TicketStatus.EXPIRED) {
-                            "ℹ️ Mã QR sẽ tự động kích hoạt khi cổng check-in mở"
-                        } else {
-                            "✓ Vé điện tử đã sử dụng thành công"
-                        },
-                        fontSize = 11.sp,
-                        color = TextMediumEmphasis,
-                        textAlign = TextAlign.Center
+                        text = "CCCD: •••• 5821",
+                        fontSize = 11.5.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = TextMediumEmphasis
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Nút đóng cửa sổ nhanh
-            Button(
-                onClick = onClose,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(42.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = SurfaceContainerHighest),
-                shape = RoundedCornerShape(10.dp)
-            ) {
-                Text("Đóng cửa sổ", color = TextHighEmphasis, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
 /**
- * Khối QR đang mở cổng: Hiển thị ma trận QR + vòng đếm ngược giây thời gian thực.
+ * Thumbnail sự kiện phong cách sân khấu biểu diễn với dải sáng concert.
  */
 @Composable
-private fun CompactActiveDynamicQr(
+fun ConcertThumbnail(
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(52.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(
+                        Color(0xFFE11D48),
+                        Color(0xFFD97706),
+                        Color(0xFF0F172A)
+                    ),
+                    start = Offset(0f, 0f),
+                    end = Offset(100f, 100f)
+                )
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawLine(
+                color = Color(0x664EDEA3),
+                start = Offset(0f, size.height),
+                end = Offset(size.width, 0f),
+                strokeWidth = 2.dp.toPx()
+            )
+            drawLine(
+                color = Color(0x664CD7F6),
+                start = Offset(size.width * 0.3f, size.height),
+                end = Offset(size.width * 0.7f, 0f),
+                strokeWidth = 1.5.dp.toPx()
+            )
+            drawArc(
+                color = Color(0xCC0C1322),
+                startAngle = 0f,
+                sweepAngle = 180f,
+                useCenter = true,
+                topLeft = Offset(-size.width * 0.2f, size.height * 0.6f),
+                size = Size(size.width * 1.4f, size.height * 0.8f)
+            )
+        }
+        Text("🎸", fontSize = 22.sp)
+    }
+}
+
+/**
+ * Đường vạch đứt đoạn nối liền 2 rãnh khoét bán nguyệt mép thẻ vé.
+ */
+@Composable
+fun TicketPerforationDivider(
+    modifier: Modifier = Modifier,
+    cutoutRadius: Dp = 10.dp,
+    cutoutColor: Color = ObsidianVoid,
+    dashColor: Color = Color(0xFF2E3545)
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(cutoutRadius * 2),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Vết khuyết bán nguyệt trái
+        Canvas(modifier = Modifier.size(width = cutoutRadius, height = cutoutRadius * 2)) {
+            drawArc(
+                color = cutoutColor,
+                startAngle = -90f,
+                sweepAngle = 180f,
+                useCenter = true,
+                topLeft = Offset(-size.width, 0f),
+                size = Size(size.width * 2, size.height)
+            )
+        }
+
+        // Đường vạch đứt đoạn (Perforation Dashes)
+        Canvas(
+            modifier = Modifier
+                .weight(1f)
+                .height(1.dp)
+                .padding(horizontal = 4.dp)
+        ) {
+            val dashWidth = 5.dp.toPx()
+            val gapWidth = 4.dp.toPx()
+            var startX = 0f
+            while (startX < size.width) {
+                drawLine(
+                    color = dashColor,
+                    start = Offset(startX, 0f),
+                    end = Offset(minOf(startX + dashWidth, size.width), 0f),
+                    strokeWidth = 1.2.dp.toPx()
+                )
+                startX += dashWidth + gapWidth
+            }
+        }
+
+        // Vết khuyết bán nguyệt phải
+        Canvas(modifier = Modifier.size(width = cutoutRadius, height = cutoutRadius * 2)) {
+            drawArc(
+                color = cutoutColor,
+                startAngle = 90f,
+                sweepAngle = 180f,
+                useCenter = true,
+                topLeft = Offset(0f, 0f),
+                size = Size(size.width * 2, size.height)
+            )
+        }
+    }
+}
+
+/**
+ * Khối QR đang mở cổng: Chassis màu trắng tinh, icon xoay và huy hiệu bảo mật.
+ */
+@Composable
+private fun ActiveDynamicQrSection(
     ticketId: String,
     dynamicQr: DynamicQrData?,
-    onRefreshQr: () -> Unit
+    modifier: Modifier = Modifier,
+    onRefreshQr: () -> Unit = {}
 ) {
     val remaining = dynamicQr?.remainingSeconds ?: 30
-    val total = dynamicQr?.totalIntervalSeconds ?: 30
-    val progress = (remaining.toFloat() / total.toFloat()).coerceIn(0f, 1f)
     val tokenHash = dynamicQr?.qrPayload ?: ticketId
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    val infiniteTransition = rememberInfiniteTransition(label = "syncSpin")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
+
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Hộp mã QR nền trắng tinh chuẩn độ tương phản cao
         Box(
             modifier = Modifier
-                .size(190.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp)
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(22.dp))
                 .background(Color.White)
-                .border(1.5.dp, EmeraldPrimary.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                .padding(8.dp),
+                .padding(14.dp),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                DynamicQrMatrixGraphic(
-                    tokenHash = tokenHash,
-                    modifier = Modifier.size(165.dp)
-                )
+            DynamicQrMatrixGraphic(
+                tokenHash = tokenHash,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
-            }
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Dòng đếm ngược giây tự động đổi mã (hỗ trợ bấm vào để làm mới)
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onRefreshQr() }
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Sync,
+                contentDescription = "Làm mới mã",
+                tint = EmeraldPrimary,
+                modifier = Modifier
+                    .size(18.dp)
+                    .rotate(rotation)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = buildAnnotatedString {
+                    append("Tự động đổi mã sau: ")
+                    withStyle(SpanStyle(color = EmeraldPrimary, fontWeight = FontWeight.Bold)) {
+                        append("${remaining}s")
+                    }
+                },
+                fontSize = 13.sp,
+                color = TextMediumEmphasis
+            )
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Vòng đếm ngược giây thời gian thực (Cập nhật liên tục mỗi giây)
+        // Huy hiệu bảo mật chống chụp màn hình
         Row(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(Color(0xFF162330))
+                .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier.size(30.dp),
-                    color = if (remaining <= 5) AmberTertiary else EmeraldPrimary,
-                    trackColor = SurfaceContainerHighest,
-                    strokeWidth = 3.dp
-                )
-                Text(
-                    text = "${remaining}s",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextHighEmphasis
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-                Text(
-                    text = "Tự động đổi mã sau ${remaining} giây",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextHighEmphasis
-                )
-                Text(
-                    text = "Mã bảo mật: ${dynamicQr?.qrPayload?.substringAfterLast(":")?.take(12) ?: "••••••••••••"}",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
-                    color = CyanSecondary
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Shield,
+                contentDescription = null,
+                tint = EmeraldPrimary,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = "Mã tự đổi mỗi 30s • Chống chụp màn hình",
+                fontSize = 11.5.sp,
+                color = TextHighEmphasis
+            )
         }
     }
 }
 
 /**
- * Khối QR chưa tới giờ check-in.
+ * Khối QR khi cổng soát vé chưa mở.
  */
 @Composable
-private fun CompactLockedQr(gateOpensAt: String) {
+private fun CompactLockedQr(
+    gateOpensAt: String,
+    modifier: Modifier = Modifier
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(vertical = 12.dp)
+        modifier = modifier.padding(vertical = 14.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(190.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp)
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(22.dp))
                 .background(SurfaceContainerHigh)
-                .border(1.5.dp, AmberTertiary.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
-                .padding(14.dp),
+                .border(1.5.dp, AmberTertiary.copy(alpha = 0.5f), RoundedCornerShape(22.dp))
+                .padding(18.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("🔒", fontSize = 36.sp)
-                Spacer(modifier = Modifier.height(8.dp))
+                Text("🔒", fontSize = 42.sp)
+                Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = "MÃ QR ĐANG TẠM KHÓA",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     color = AmberTertiary,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Cổng soát vé chưa mở.\nMã QR động sẽ tự động kích hoạt trước giờ bắt đầu sự kiện.",
-                    fontSize = 11.sp,
+                    text = "Cổng soát vé mở lúc: $gateOpensAt\nMã QR động sẽ tự động kích hoạt trước giờ bắt đầu sự kiện.",
+                    fontSize = 11.5.sp,
                     color = TextMediumEmphasis,
                     textAlign = TextAlign.Center,
-                    lineHeight = 15.sp
+                    lineHeight = 16.sp
                 )
             }
         }
@@ -522,42 +780,48 @@ private fun CompactLockedQr(gateOpensAt: String) {
 }
 
 /**
- * Khối QR đã check-in thành công.
+ * Khối QR khi vé đã check-in thành công.
  */
 @Composable
-private fun CompactCheckedInQr(attendeeName: String, seatCode: String) {
+private fun CompactCheckedInQr(
+    attendeeName: String,
+    seatCode: String,
+    modifier: Modifier = Modifier
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(vertical = 10.dp)
+        modifier = modifier.padding(vertical = 12.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(180.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp)
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(22.dp))
                 .background(EmeraldPrimary.copy(alpha = 0.12f))
-                .border(1.5.dp, EmeraldPrimary, RoundedCornerShape(12.dp))
-                .padding(12.dp),
+                .border(1.5.dp, EmeraldPrimary, RoundedCornerShape(22.dp))
+                .padding(18.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("✓", fontSize = 42.sp, fontWeight = FontWeight.Black, color = EmeraldPrimary)
-                Spacer(modifier = Modifier.height(6.dp))
+                Text("✓", fontSize = 48.sp, fontWeight = FontWeight.Black, color = EmeraldPrimary)
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "ĐÃ CHECK-IN THÀNH CÔNG",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
+                    fontSize = 13.sp,
                     color = EmeraldPrimary,
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Ghế: $seatCode",
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     color = TextHighEmphasis
                 )
                 Text(
-                    text = "Đã qua cổng lúc 19:30",
-                    fontSize = 9.sp,
+                    text = "Khách: $attendeeName",
+                    fontSize = 10.sp,
                     color = TextMediumEmphasis
                 )
             }
@@ -566,30 +830,34 @@ private fun CompactCheckedInQr(attendeeName: String, seatCode: String) {
 }
 
 /**
- * Khối QR đã bị thu hồi hoặc hủy.
+ * Khối QR khi vé đã bị thu hồi.
  */
 @Composable
-private fun CompactRevokedQr() {
+private fun CompactRevokedQr(
+    modifier: Modifier = Modifier
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(vertical = 10.dp)
+        modifier = modifier.padding(vertical = 12.dp)
     ) {
         Box(
             modifier = Modifier
-                .size(180.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp)
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(22.dp))
                 .background(FieryError.copy(alpha = 0.15f))
-                .border(1.5.dp, FieryError, RoundedCornerShape(12.dp))
-                .padding(12.dp),
+                .border(1.5.dp, FieryError, RoundedCornerShape(22.dp))
+                .padding(18.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("✕", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = FieryError)
-                Spacer(modifier = Modifier.height(6.dp))
+                Text("✕", fontSize = 48.sp, fontWeight = FontWeight.Bold, color = FieryError)
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "VÉ ĐÃ BỊ THU HỒI",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     color = FieryError
                 )
             }
@@ -602,16 +870,16 @@ private fun CompactRevokedQr() {
  */
 @Composable
 private fun DynamicQrMatrixGraphic(
-    modifier: Modifier = Modifier,
-    tokenHash: String
+    tokenHash: String,
+    modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(Color.White),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(6.dp)) {
             val canvasSize = size.width
             val moduleCount = 25
             val moduleSize = canvasSize / moduleCount
@@ -674,16 +942,21 @@ private fun DynamicQrMatrixGraphic(
             }
         }
 
-        // Huy hiệu bảo mật Shield trung tâm
+        // Logo trung tâm: Hộp bo góc nền đen chứa biểu tượng QR màu xanh ngọc
         Box(
             modifier = Modifier
-                .size(30.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(ObsidianVoid)
-                .border(1.2.dp, EmeraldPrimary, RoundedCornerShape(6.dp)),
+                .size(38.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF0C1322))
+                .border(1.2.dp, EmeraldPrimary.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
-            Text("🛡️", fontSize = 13.sp)
+            Icon(
+                imageVector = Icons.Default.QrCode,
+                contentDescription = null,
+                tint = EmeraldPrimary,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
@@ -691,13 +964,14 @@ private fun DynamicQrMatrixGraphic(
 /**
  * MÀN HÌNH ĐỘC LẬP: QR CHECKING VÉ ĐIỆN TỬ (Dynamic QR Pass Full Screen)
  */
+@Suppress("unused")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TicketDisplayScreen(
     viewModel: TicketDisplayViewModel,
     ticketId: String,
-    onBack: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onBack: (() -> Unit)? = null
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -707,11 +981,23 @@ fun TicketDisplayScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = ObsidianVoid,
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = ObsidianVoid.copy(alpha = 0.9f)
+                    containerColor = ObsidianVoid
                 ),
+                navigationIcon = {
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Quay lại",
+                                tint = TextHighEmphasis
+                            )
+                        }
+                    }
+                },
                 title = {
                     Column {
                         Text("Mã Vé Check-in", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = TextHighEmphasis)
@@ -740,57 +1026,61 @@ fun TicketDisplayScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
             TicketQrPopupModalCard(
                 ticketId = ticketId,
                 ticket = state.ticket,
+                onClose = { onBack?.invoke() },
                 dynamicQr = state.dynamicQr,
                 isLoading = state.isLoading,
                 errorMessage = state.errorMessage,
-                onRefreshQr = { viewModel.handleIntent(TicketDisplayIntent.RefreshQrRequested) },
-                onClose = { onBack?.invoke() },
-                modifier = Modifier.padding(16.dp)
+                onRefreshQr = { viewModel.handleIntent(TicketDisplayIntent.RefreshQrRequested) }
             )
         }
     }
 }
 
 // =========================================================================
-// PREVIEW COMPOSABLES DÀNH CHO ANDROID STUDIO
+// PREVIEWS
 // =========================================================================
 
-@Preview(name = "QR Slide-up Modal - Active (Đang check-in)", showBackground = true, backgroundColor = 0xFF0C1322)
+@Preview(name = "QR Ticket Pass Card - Active (Theo img.png)", showBackground = true, backgroundColor = 0xFF0C1322)
 @Composable
 fun TicketQrPopupModalActivePreview() {
     DynamicQRTicketingTheme {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.65f))
+                .background(Color.Black.copy(alpha = 0.75f))
                 .padding(16.dp),
-            contentAlignment = Alignment.BottomCenter
+            contentAlignment = Alignment.Center
         ) {
             TicketQrPopupModalCard(
-                ticketId = "TKT-VN-2026-9901",
-                ticket = Ticket(
-                    id = "TKT-VN-2026-9901",
+                ticketId = "TKT-9901",
+                ticket = null,
+                onClose = {},
+                ticketItem = UserTicketItem(
+                    ticketId = "TKT-9901",
                     eventName = "HÀ NỘI ROCK FEST 2026",
-                    venue = "SVĐ Quốc Gia Mỹ Đình, Hà Nội",
-                    eventTimestamp = 1773513600L,
-                    seatNumber = "VIP-A12",
-                    ticketHolderName = "Nguyễn Hoàng Long",
-                    status = TicketStatus.ACTIVE
+                    venue = "Sân Vận Động Mỹ Đình",
+                    dateDisplay = "24/10/2026 - 19:30",
+                    seatNumber = "A1-042",
+                    attendeeName = "Nguyễn Văn An",
+                    tierName = "VIP Diamond - Fanzone A",
+                    status = UserTicketCheckInStatus.READY_TO_CHECK_IN,
+                    gateInfo = "GATE A1"
                 ),
                 dynamicQr = DynamicQrData(
-                    ticketId = "TKT-VN-2026-9901",
-                    qrPayload = "TICKETING:TKT-VN-2026-9901:1773513630:c8f92a10e7b4",
+                    ticketId = "TKT-9901",
+                    qrPayload = "TICKETING:TKT-9901:1773513630:c8f92a10e7b4",
                     validUntilEpochSeconds = 1773513630L,
                     totalIntervalSeconds = 30,
-                    remainingSeconds = 24
-                ),
-                onClose = {}
+                    remainingSeconds = 30
+                )
             )
         }
     }
@@ -803,14 +1093,14 @@ fun TicketQrPopupModalLockedPreview() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.65f))
+                .background(Color.Black.copy(alpha = 0.75f))
                 .padding(16.dp),
-            contentAlignment = Alignment.BottomCenter
+            contentAlignment = Alignment.Center
         ) {
             TicketQrPopupModalCard(
-                ticketId = "TKT-VN-2026-8802",
+                ticketId = "TKT-8802",
                 ticket = Ticket(
-                    id = "TKT-VN-2026-8802",
+                    id = "TKT-8802",
                     eventName = "ĐẠI NHẠC HỘI MONSOON EDM",
                     venue = "TT Hội Nghị Quốc Gia",
                     eventTimestamp = 1773513600L,
@@ -818,8 +1108,8 @@ fun TicketQrPopupModalLockedPreview() {
                     ticketHolderName = "Nguyễn Hoàng Long",
                     status = TicketStatus.EXPIRED
                 ),
-                dynamicQr = null,
-                onClose = {}
+                onClose = {},
+                dynamicQr = null
             )
         }
     }
@@ -832,14 +1122,14 @@ fun TicketQrPopupModalCheckedInPreview() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.65f))
+                .background(Color.Black.copy(alpha = 0.75f))
                 .padding(16.dp),
-            contentAlignment = Alignment.BottomCenter
+            contentAlignment = Alignment.Center
         ) {
             TicketQrPopupModalCard(
-                ticketId = "TKT-VN-2026-7703",
+                ticketId = "TKT-7703",
                 ticket = Ticket(
-                    id = "TKT-VN-2026-7703",
+                    id = "TKT-7703",
                     eventName = "CHUNG KẾT CÚP QUỐC GIA",
                     venue = "SVĐ Hàng Đẫy",
                     eventTimestamp = 1773513600L,
@@ -847,8 +1137,8 @@ fun TicketQrPopupModalCheckedInPreview() {
                     ticketHolderName = "Nguyễn Hoàng Long",
                     status = TicketStatus.CHECKED_IN
                 ),
-                dynamicQr = null,
-                onClose = {}
+                onClose = {},
+                dynamicQr = null
             )
         }
     }

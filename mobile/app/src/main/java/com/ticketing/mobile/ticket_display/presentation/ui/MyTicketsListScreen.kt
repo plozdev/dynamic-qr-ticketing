@@ -1,10 +1,12 @@
 package com.ticketing.mobile.ticket_display.presentation.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,25 +14,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
-import androidx.compose.material3.TabRowDefaults.SecondaryIndicator
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -40,11 +48,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.ticketing.mobile.ticket_display.domain.model.UserTicketCheckInStatus
+import com.ticketing.mobile.ticket_display.domain.model.UserTicketItem
 import com.ticketing.mobile.ticket_display.presentation.TicketDisplayViewModel
 import com.ticketing.mobile.ui.theme.AmberTertiary
 import com.ticketing.mobile.ui.theme.CyanSecondary
@@ -53,14 +67,316 @@ import com.ticketing.mobile.ui.theme.EmeraldPrimary
 import com.ticketing.mobile.ui.theme.FieryError
 import com.ticketing.mobile.ui.theme.ObsidianVoid
 import com.ticketing.mobile.ui.theme.SurfaceContainer
+import com.ticketing.mobile.ui.theme.SurfaceContainerHigh
 import com.ticketing.mobile.ui.theme.SurfaceContainerHighest
-import com.ticketing.mobile.ui.theme.SurfaceContainerLow
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
+import com.ticketing.mobile.ui.theme.TextMuted
 
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.ticketing.mobile.ticket_display.domain.model.UserTicketCheckInStatus
-import com.ticketing.mobile.ticket_display.domain.model.UserTicketItem
+/**
+ * Mục chip lọc danh mục sự kiện kèm số lượng.
+ */
+data class TopBarCategoryChip(
+    val id: Int,
+    val title: String,
+    val count: Int
+)
+
+/**
+ * Logo SecureTix với viền sáng neon và biểu tượng Dynamic Shield.
+ */
+@Composable
+fun SecureTixLogo(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(38.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF0F1726))
+            .border(1.dp, EmeraldPrimary.copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Shield,
+                contentDescription = "SecureTix Logo",
+                tint = EmeraldPrimary,
+                modifier = Modifier.size(19.dp)
+            )
+            Spacer(modifier = Modifier.height(1.dp))
+            Text(
+                text = "SECURETIX",
+                fontSize = 5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = CyanSecondary,
+                letterSpacing = 0.6.sp,
+                lineHeight = 6.sp
+            )
+        }
+    }
+}
+
+/**
+ * Chip phân loại sự kiện phong cách Obsidian Pass với huy hiệu số lượng.
+ */
+@Composable
+fun CategoryChipItem(
+    title: String,
+    count: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val containerColor = if (isSelected) EmeraldPrimary else SurfaceContainerHigh
+    val contentColor = if (isSelected) Color(0xFF003824) else TextHighEmphasis
+    val badgeContainerColor = if (isSelected) Color(0xFF003824).copy(alpha = 0.18f) else SurfaceContainerHighest
+    val badgeTextColor = if (isSelected) Color(0xFF003824) else TextMuted
+
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(containerColor)
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = title,
+            fontSize = 12.sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            color = contentColor
+        )
+        Box(
+            modifier = Modifier
+                .clip(CircleShape)
+                .background(badgeContainerColor)
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = count.toString(),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = badgeTextColor
+            )
+        }
+    }
+}
+
+/**
+ * Top bar chuẩn Obsidian Pass theo thiết kế:
+ * 1. Thanh thương hiệu: Logo SecureTix + Tiêu đề + Hành động (Search, Notification với chấm xanh, User avatar)
+ * 2. Hộp tìm kiếm bo góc với icon kính lúp xanh ngọc và icon bộ lọc
+ * 3. Hàng Chip lọc danh mục sự kiện cuộn ngang với badge số lượng
+ */
+@Composable
+fun SecureTixTopBar(
+    modifier: Modifier = Modifier,
+    subtitle: String = "TẤT CẢ SỰ KIỆN",
+    searchQuery: String = "",
+    onSearchQueryChange: (String) -> Unit = {},
+    selectedChipIndex: Int = 0,
+    chips: List<TopBarCategoryChip> = emptyList(),
+    onChipSelected: (Int) -> Unit = {},
+    onSearchClick: (() -> Unit)? = null,
+    onNotificationClick: (() -> Unit)? = null,
+    onProfileClick: (() -> Unit)? = null,
+    onFilterClick: (() -> Unit)? = null
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(ObsidianVoid)
+            .statusBarsPadding()
+    ) {
+        // --- 1. BRAND HEADER ROW ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Logo & Tiêu đề
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f, fill = false)
+            ) {
+                SecureTixLogo()
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "SecureTix",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 19.sp,
+                        color = TextHighEmphasis,
+                        letterSpacing = (-0.3).sp
+                    )
+                    Text(
+                        text = subtitle,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 10.sp,
+                        color = EmeraldPrimary,
+                        letterSpacing = 0.8.sp
+                    )
+                }
+            }
+
+            // Nút hành động phải (Search, Notification, Avatar)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                IconButton(
+                    onClick = { onSearchClick?.invoke() },
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Tìm kiếm",
+                        tint = TextMediumEmphasis,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+
+                Box(contentAlignment = Alignment.TopEnd) {
+                    IconButton(
+                        onClick = { onNotificationClick?.invoke() },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Thông báo",
+                            tint = TextMediumEmphasis,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    // Chấm xanh thông báo chưa đọc
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 7.dp, end = 7.dp)
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(EmeraldPrimary)
+                            .border(1.5.dp, ObsidianVoid, CircleShape)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Avatar cá nhân
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(EmeraldPrimary)
+                        .clickable { onProfileClick?.invoke() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Hồ sơ",
+                        tint = Color(0xFF003824),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        // --- 2. SEARCH BAR ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceContainerHigh)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = EmeraldPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (searchQuery.isEmpty()) {
+                    Text(
+                        text = "Tìm kiếm sự kiện",
+                        color = TextMuted,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        color = TextHighEmphasis,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    cursorBrush = SolidColor(EmeraldPrimary),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (searchQuery.isNotEmpty()) {
+                IconButton(
+                    onClick = { onSearchQueryChange("") },
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = "Xóa tìm kiếm",
+                        tint = TextMediumEmphasis,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            IconButton(
+                onClick = { onFilterClick?.invoke() },
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Tune,
+                    contentDescription = "Bộ lọc nâng cao",
+                    tint = TextMediumEmphasis,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // --- 3. QUICK FILTER CHIPS ROW ---
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(chips) { chip ->
+                val isSelected = chip.id == selectedChipIndex
+                CategoryChipItem(
+                    title = chip.title,
+                    count = chip.count,
+                    isSelected = isSelected,
+                    onClick = { onChipSelected(chip.id) }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
 
 /**
  * MÀN HÌNH 2: CÁC VÉ CỦA TÔI (My Tickets Screen)
@@ -75,16 +391,48 @@ fun MyTicketsListScreen(
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     var selectedTicketForModal by remember { mutableStateOf<UserTicketItem?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
     val state by ticketDisplayViewModel.uiState.collectAsStateWithLifecycle()
 
     val myTickets = state.myTickets
 
-    val filteredTickets = remember(selectedTabIndex, myTickets) {
-        when (selectedTabIndex) {
-            0 -> myTickets.filter { it.status == UserTicketCheckInStatus.READY_TO_CHECK_IN || it.status == UserTicketCheckInStatus.NOT_YET_CHECK_IN }
-            1 -> myTickets.filter { it.status == UserTicketCheckInStatus.CHECKED_IN }
+    val filteredTickets = remember(selectedTabIndex, myTickets, searchQuery) {
+        val categoryFiltered = when (selectedTabIndex) {
+            0 -> myTickets // Tất cả
+            1 -> myTickets.filter {
+                it.eventName.contains("Rock", ignoreCase = true) ||
+                it.eventName.contains("EDM", ignoreCase = true) ||
+                it.eventName.contains("Concert", ignoreCase = true) ||
+                it.eventName.contains("Nhạc", ignoreCase = true)
+            } // Âm nhạc & Concert
+            2 -> myTickets.filter {
+                it.eventName.contains("Sport", ignoreCase = true) ||
+                it.eventName.contains("Bóng", ignoreCase = true) ||
+                it.eventName.contains("Marathon", ignoreCase = true)
+            } // Thể thao
+            3 -> myTickets.filter {
+                it.eventName.contains("Triển lãm", ignoreCase = true) ||
+                it.eventName.contains("Festival", ignoreCase = true)
+            } // Triển lãm & Festival
+            4 -> myTickets.filter {
+                it.eventName.contains("Kịch", ignoreCase = true) ||
+                it.eventName.contains("Sân khấu", ignoreCase = true)
+            } // Kịch nghệ & Sân khấu
             else -> myTickets
+        }
+
+        if (searchQuery.isBlank()) {
+            categoryFiltered
+        } else {
+            val query = searchQuery.trim().lowercase()
+            categoryFiltered.filter {
+                it.eventName.lowercase().contains(query) ||
+                it.venue.lowercase().contains(query) ||
+                it.attendeeName.lowercase().contains(query) ||
+                it.tierName.lowercase().contains(query) ||
+                it.ticketId.lowercase().contains(query)
+            }
         }
     }
 
@@ -99,6 +447,8 @@ fun MyTicketsListScreen(
             selectedTicketForModal = ticket
             onTicketSelected?.invoke(ticket)
         },
+        searchQuery = searchQuery,
+        onSearchQueryChange = { searchQuery = it },
         modifier = modifier
     )
 
@@ -126,23 +476,40 @@ fun MyTicketsContent(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     errorMessage: String? = null,
-    onRetry: (() -> Unit)? = null
+    onRetry: (() -> Unit)? = null,
+    searchQuery: String = "",
+    onSearchQueryChange: (String) -> Unit = {},
+    subtitle: String = "TẤT CẢ SỰ KIỆN",
+    onSearchClick: (() -> Unit)? = null,
+    onNotificationClick: (() -> Unit)? = null,
+    onProfileClick: (() -> Unit)? = null,
+    onFilterClick: (() -> Unit)? = null
 ) {
-    val tabs = listOf("Sắp Diễn Ra", "Đã Sử Dụng", "Tất Cả")
+    val chips = remember {
+        listOf(
+            TopBarCategoryChip(0, "Tất cả", 124),
+            TopBarCategoryChip(1, "Âm nhạc & Concert", 58),
+            TopBarCategoryChip(2, "Thể thao", 32),
+            TopBarCategoryChip(3, "Triển lãm & Festival", 18),
+            TopBarCategoryChip(4, "Kịch nghệ & Sân khấu", 16)
+        )
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = ObsidianVoid,
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = ObsidianVoid.copy(alpha = 0.9f)
-                ),
-                title = {
-                    Column {
-                        Text("Vé Của Tôi", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = TextHighEmphasis)
-                        Text("${tickets.size} vé điện tử đã đồng bộ", fontSize = 11.sp, color = EmeraldPrimary)
-                    }
-                }
+            SecureTixTopBar(
+                subtitle = subtitle,
+                searchQuery = searchQuery,
+                onSearchQueryChange = onSearchQueryChange,
+                selectedChipIndex = selectedTabIndex,
+                chips = chips,
+                onChipSelected = onTabSelected,
+                onSearchClick = onSearchClick,
+                onNotificationClick = onNotificationClick,
+                onProfileClick = onProfileClick,
+                onFilterClick = onFilterClick
             )
         }
     ) { innerPadding ->
@@ -151,33 +518,6 @@ fun MyTicketsContent(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Tab Row
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                containerColor = SurfaceContainerLow,
-                contentColor = EmeraldPrimary,
-                indicator = { tabPositions ->
-                    SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                        color = EmeraldPrimary
-                    )
-                }
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTabIndex == index,
-                        onClick = { onTabSelected(index) },
-                        text = {
-                            Text(
-                                text = title,
-                                fontSize = 13.sp,
-                                fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Normal,
-                                color = if (selectedTabIndex == index) EmeraldPrimary else TextMediumEmphasis
-                            )
-                        }
-                    )
-                }
-            }
 
             // Ticket Content States
             if (isLoading) {
@@ -262,10 +602,11 @@ fun MyTicketsContent(
 @Composable
 fun UserTicketCard(
     ticket: UserTicketItem,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable { onClick() },
@@ -385,7 +726,7 @@ fun UserTicketCard(
 
                 Button(
                     onClick = onClick,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) EmeraldPrimary else SurfaceContainerHighest
                     ),
@@ -489,3 +830,25 @@ fun UserTicketCardLockedPreview() {
         }
     }
 }
+
+@Preview(name = "SecureTix Top Bar Preview", showBackground = true, backgroundColor = 0xFF0C1322)
+@Composable
+fun SecureTixTopBarPreview() {
+    DynamicQRTicketingTheme {
+        SecureTixTopBar(
+            subtitle = "TẤT CẢ SỰ KIỆN",
+            searchQuery = "",
+            onSearchQueryChange = {},
+            selectedChipIndex = 0,
+            chips = listOf(
+                TopBarCategoryChip(0, "Tất cả", 124),
+                TopBarCategoryChip(1, "Âm nhạc & Concert", 58),
+                TopBarCategoryChip(2, "Thể thao", 32),
+                TopBarCategoryChip(3, "Triển lãm & Festival", 18),
+                TopBarCategoryChip(4, "Kịch nghệ & Sân khấu", 16)
+            ),
+            onChipSelected = {}
+        )
+    }
+}
+
