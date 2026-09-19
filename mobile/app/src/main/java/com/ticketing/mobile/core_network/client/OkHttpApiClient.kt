@@ -21,8 +21,8 @@ import java.io.IOException
  */
 class OkHttpApiClient(
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(java.time.Duration.ofMillis(2500))
-        .readTimeout(java.time.Duration.ofMillis(5000))
+        .connectTimeout(java.time.Duration.ofSeconds(10))
+        .readTimeout(java.time.Duration.ofSeconds(10))
         .addInterceptor(AuthHeaderInterceptor())
         .build(),
     candidateBaseUrls: List<String> = listOf(
