@@ -3,6 +3,19 @@
 -- Thực thi tự động sau khi Hibernate drop-create schema
 -- =====================================================================
 
+-- 0. TÀI KHOẢN NGƯỜI DÙNG MẪU (USERS)
+INSERT INTO users (id, firebase_uid, email, display_name, avatar_url, created_at, updated_at)
+VALUES (
+    '11111111-2222-3333-4444-555555555555',
+    'demo-firebase-uid-11111111',
+    'hoanglong@dynamic-qr.vn',
+    'Nguyễn Hoàng Long',
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+    NOW() - INTERVAL '30 days',
+    NOW()
+)
+ON CONFLICT (id) DO NOTHING;
+
 -- 1. DANH SÁCH SỰ KIỆN THẬT (EVENTS)
 INSERT INTO events (
     id, name, description, venue_name, venue_address,
