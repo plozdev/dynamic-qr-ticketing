@@ -12,6 +12,8 @@ public interface EventCatalogExportedService {
 
     boolean isEventActive(UUID eventId);
 
+    void reserveTicket(UUID eventId);
+
     EventSummaryDto getEventSummary(UUID eventId);
 
     record EventSummaryDto(

@@ -27,7 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.ticketing.platform.shared.security.SecurityUtils;
+import com.ticketing.platform.ticketissuance.api.dto.ClaimTicketRequest;
+import com.ticketing.platform.ticketissuance.api.dto.ClaimTicketResponse;
 import com.ticketing.platform.ticketissuance.api.dto.TicketDetailsResponse;
+import com.ticketing.platform.ticketissuance.application.port.in.ClaimTicketUseCase;
 import com.ticketing.platform.ticketissuance.application.port.in.GetTicketDetailsUseCase;
 
 /**
@@ -39,6 +43,7 @@ import com.ticketing.platform.ticketissuance.application.port.in.GetTicketDetail
 public class TicketIssuanceController {
 
     private final IssueTicketUseCase issueTicketUseCase;
+    private final ClaimTicketUseCase claimTicketUseCase;
     private final GenerateDynamicQrUseCase generateDynamicQrUseCase;
     private final SyncTicketUseCase syncTicketUseCase;
     private final GetUserTicketsUseCase getUserTicketsUseCase;
@@ -48,10 +53,7 @@ public class TicketIssuanceController {
     public ResponseEntity<List<UserTicketResponse>> getMyTickets(
             @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
             @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = userIdHeader != null ? userIdHeader : userIdParam;
-        if (effectiveUserId == null) {
-            effectiveUserId = UUID.fromString("11111111-2222-3333-4444-555555555555");
-        }
+        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
         return ResponseEntity.ok(getUserTicketsUseCase.getUserTickets(effectiveUserId));
     }
 
@@ -60,10 +62,7 @@ public class TicketIssuanceController {
             @PathVariable UUID id,
             @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
             @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = userIdHeader != null ? userIdHeader : userIdParam;
-        if (effectiveUserId == null) {
-            effectiveUserId = UUID.fromString("11111111-2222-3333-4444-555555555555");
-        }
+        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
         return ResponseEntity.ok(getTicketDetailsUseCase.getTicketDetails(id, effectiveUserId));
     }
 
@@ -78,10 +77,7 @@ public class TicketIssuanceController {
             @PathVariable UUID id,
             @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
             @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = userIdHeader != null ? userIdHeader : userIdParam;
-        if (effectiveUserId == null) {
-            effectiveUserId = UUID.fromString("11111111-2222-3333-4444-555555555555");
-        }
+        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
         DynamicQrDto dto = generateDynamicQrUseCase.generateDynamicQr(id, effectiveUserId);
         return ResponseEntity.ok(new DynamicQrResponse(
                 dto.ticketId(),
@@ -96,10 +92,7 @@ public class TicketIssuanceController {
             @PathVariable UUID id,
             @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
             @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = userIdHeader != null ? userIdHeader : userIdParam;
-        if (effectiveUserId == null) {
-            effectiveUserId = UUID.fromString("11111111-2222-3333-4444-555555555555");
-        }
+        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
         TicketSyncDto dto = syncTicketUseCase.syncTicket(id, effectiveUserId);
         return ResponseEntity.ok(new TicketSyncResponse(
                 dto.ticketId(),
@@ -108,5 +101,17 @@ public class TicketIssuanceController {
                 dto.secretKeyBase64(),
                 dto.serverTimeEpochSeconds()
         ));
+    }
+
+    @PostMapping("/claim")
+    public ResponseEntity<ClaimTicketResponse> claimTicket(
+            @RequestParam UUID eventId,
+            @RequestBody(required = false) ClaimTicketRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
+            @RequestParam(value = "userId", required = false) UUID userIdParam) {
+        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
+        ClaimTicketRequest effectiveRequest = request != null ? request : new ClaimTicketRequest(null, null, null);
+        ClaimTicketResponse response = claimTicketUseCase.claimTicket(effectiveRequest.toCommand(eventId, effectiveUserId));
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

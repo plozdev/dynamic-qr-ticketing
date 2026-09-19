@@ -35,17 +35,23 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.ticketing.platform.shared.security.SecurityUtils;
+import com.ticketing.platform.ticketissuance.api.dto.ClaimTicketResponse;
+import com.ticketing.platform.ticketissuance.application.dto.ClaimTicketCommand;
+import com.ticketing.platform.ticketissuance.application.port.in.ClaimTicketUseCase;
+import com.ticketing.platform.user.UserExportedService;
+
 /**
- * Khung sườn Application Service cho Ticket Issuance.
- * Bạn tự triển khai logic cấp phát vé, sinh mã động và liên kết sự kiện.
+ * Application Service cho Ticket Issuance.
  */
 @Service
 @Transactional
 @RequiredArgsConstructor 
-public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynamicQrUseCase, SyncTicketUseCase, GetUserTicketsUseCase, GetTicketDetailsUseCase, TicketVerificationExportedService {
+public class TicketIssuanceService implements IssueTicketUseCase, ClaimTicketUseCase, GenerateDynamicQrUseCase, SyncTicketUseCase, GetUserTicketsUseCase, GetTicketDetailsUseCase, TicketVerificationExportedService {
 
     private final TicketRepository ticketRepository;
     private final EventCatalogExportedService eventCatalogService;
+    private final UserExportedService userExportedService;
     private final QrCryptoPort qrCryptoPort;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -66,6 +72,67 @@ public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynami
         ));
 
         return ticket.getId().value();
+    }
+
+    @Override
+    public ClaimTicketResponse claimTicket(ClaimTicketCommand command) {
+        if (!eventCatalogService.isEventActive(command.eventId())) {
+            throw new DomainException("Cannot claim ticket because event is not active: " + command.eventId());
+        }
+
+        // 1. Reserve ticket in Event Catalog (decrements available tickets)
+        eventCatalogService.reserveTicket(command.eventId());
+
+        // 2. Resolve attendee name
+        String attendeeName = command.attendeeName();
+        if (attendeeName == null || attendeeName.isBlank()) {
+            attendeeName = userExportedService.getUserById(command.userId())
+                    .map(UserExportedService.UserDto::displayName)
+                    .orElse("Khán Giả");
+        }
+
+        // 3. Resolve category, seat and gate
+        var eventSummary = eventCatalogService.getEventSummary(command.eventId());
+        String categoryName = command.categoryName() != null && !command.categoryName().isBlank()
+                ? command.categoryName()
+                : "Standard";
+
+        String seatNumber = command.seatNumber() != null && !command.seatNumber().isBlank()
+                ? command.seatNumber()
+                : "GA-" + String.format("%03d", (int) (Math.random() * 900 + 100));
+
+        String gateInfo = "CỔNG CHÍNH";
+
+        // 4. Create and save ticket with 256-bit cryptographically secure seed
+        Ticket ticket = Ticket.issue(command.eventId(), command.userId(), categoryName, seatNumber, attendeeName, gateInfo);
+        ticketRepository.save(ticket);
+
+        // 5. Publish integration event
+        eventPublisher.publishEvent(new TicketIssuedIntegrationEvent(
+                ticket.getId().value(),
+                ticket.getEventId(),
+                ticket.getUserId(),
+                ticket.getCategoryName()
+        ));
+
+        Instant startDateTime = eventSummary.startDateTime();
+        int checkInWindowMinutes = eventSummary.checkInWindowMinutes();
+        Instant checkInOpensAt = startDateTime.minus(Duration.ofMinutes(checkInWindowMinutes));
+
+        return new ClaimTicketResponse(
+                ticket.getId().value(),
+                ticket.getEventId(),
+                eventSummary.name(),
+                eventSummary.venueName(),
+                startDateTime,
+                ticket.getCategoryName(),
+                ticket.getSeatNumber(),
+                ticket.getAttendeeName(),
+                ticket.getGateInfo(),
+                ticket.getSecret().base64Key(),
+                ticket.getStatus().name(),
+                checkInOpensAt.getEpochSecond()
+        );
     }
 
     @Override
@@ -139,7 +206,7 @@ public class TicketIssuanceService implements IssueTicketUseCase, GenerateDynami
     @Transactional(readOnly = true)
     public List<UserTicketResponse> getUserTickets(UUID userId) {
         List<Ticket> tickets = ticketRepository.findByUserId(userId);
-        if (tickets.isEmpty()) {
+        if (tickets.isEmpty() && SecurityUtils.DEFAULT_DEMO_USER_ID.equals(userId)) {
             tickets = ticketRepository.findAll();
         }
         Instant now = Instant.now();

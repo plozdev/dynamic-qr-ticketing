@@ -146,4 +146,11 @@ public class Event implements AggregateRoot<UUID> {
     public boolean isCheckInOpen(Instant now) {
         return !now.isBefore(getCheckInOpensAt()) && !now.isAfter(endDateTime);
     }
+
+    public void decrementAvailableTickets() {
+        if (this.availableTickets <= 0) {
+            throw new DomainException("No available tickets left for event: " + this.id);
+        }
+        this.availableTickets--;
+    }
 }

@@ -11,6 +11,7 @@ import com.ticketing.platform.eventcatalog.domain.repository.EventRepository;
 import com.ticketing.platform.eventcatalog.domain.model.Event;
 import com.ticketing.platform.eventcatalog.domain.model.EventStatus;
 import com.ticketing.platform.eventcatalog.domain.model.Venue;
+import com.ticketing.platform.shared.exception.DomainException;
 import com.ticketing.platform.shared.exception.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -92,6 +93,17 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
         return eventRepository.findById(eventId)
                 .map(event -> event.getStatus() == EventStatus.PUBLISHED)
                 .orElse(false);
+    }
+
+    @Override
+    public void reserveTicket(UUID eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event", eventId));
+        if (event.getStatus() != EventStatus.PUBLISHED) {
+            throw new DomainException("Cannot reserve ticket for non-published event: " + eventId);
+        }
+        event.decrementAvailableTickets();
+        eventRepository.save(event);
     }
 
     @Override
