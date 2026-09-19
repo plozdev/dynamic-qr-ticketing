@@ -3,11 +3,9 @@ package com.ticketing.mobile.core_mvi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -28,7 +26,7 @@ abstract class BaseViewModel<State : UiState, Intent : UiIntent, Effect : UiEffe
     val uiState: StateFlow<State> = _uiState.asStateFlow()
 
     private val _effect: Channel<Effect> = Channel(Channel.BUFFERED)
-    val effect = _effect.receiveAsFlow()
+    val effect: Flow<Effect> = _effect.receiveAsFlow()
 
     /**
      * Entry point for processing user intents dispatched from UI.

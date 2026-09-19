@@ -1,5 +1,6 @@
 package com.ticketing.mobile.core_network.client
 
+import com.ticketing.mobile.core_network.interceptor.AuthHeaderInterceptor
 import com.ticketing.mobile.core_network.model.ApiError
 import com.ticketing.mobile.core_network.model.NetworkResult
 import kotlinx.coroutines.Dispatchers
@@ -22,6 +23,7 @@ class OkHttpApiClient(
     private val client: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(java.time.Duration.ofMillis(2500))
         .readTimeout(java.time.Duration.ofMillis(5000))
+        .addInterceptor(AuthHeaderInterceptor())
         .build(),
     candidateBaseUrls: List<String> = listOf(
         "http://10.0.2.2:8080/api/v1",
@@ -93,7 +95,7 @@ class OkHttpApiClient(
 
             val response = client.newCall(requestBuilder.build()).execute()
             response.use { resp ->
-                val body = resp.body?.string().orEmpty()
+                val body = resp.body.string()
                 android.util.Log.d("OkHttpApiClient", "Received GET response from: $url [HTTP ${resp.code}]")
                 return if (resp.isSuccessful) {
                     try {
@@ -176,7 +178,7 @@ class OkHttpApiClient(
 
             val response = client.newCall(requestBuilder.build()).execute()
             response.use { resp ->
-                val body = resp.body?.string().orEmpty()
+                val body = resp.body.string()
                 if (resp.isSuccessful) {
                     try {
                         val parsed = deserializer(body)
