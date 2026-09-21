@@ -26,9 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.LocationOn
@@ -36,7 +33,6 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,6 +82,7 @@ import com.ticketing.mobile.ui.theme.SurfaceContainerHighest
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 import com.ticketing.mobile.ui.theme.TextMuted
+import java.util.Locale
 
 /**
  * Mục chip lọc danh mục sự kiện kèm số lượng.
@@ -159,10 +156,7 @@ fun CategoryChipItem(
 }
 
 /**
- * Top bar chuẩn Obsidian Pass theo thiết kế:
- * 1. Thanh thương hiệu: Logo SecureTix + Tiêu đề + Hành động (Search, Notification với chấm xanh, User avatar)
- * 2. Hộp tìm kiếm bo góc với icon kính lúp xanh ngọc và icon bộ lọc
- * 3. Hàng Chip lọc danh mục sự kiện cuộn ngang với badge số lượng
+ * Thanh Top Bar cao cấp SecureTix Obsidian Pass chuẩn Prototype.
  */
 @Composable
 fun SecureTixTopBar(
@@ -173,7 +167,6 @@ fun SecureTixTopBar(
     selectedChipIndex: Int = 0,
     chips: List<TopBarCategoryChip> = emptyList(),
     onChipSelected: (Int) -> Unit = {},
-    onSearchClick: (() -> Unit)? = null,
     onNotificationClick: (() -> Unit)? = null,
     onProfileClick: (() -> Unit)? = null,
     onFilterClick: (() -> Unit)? = null,
@@ -506,7 +499,6 @@ fun MyTicketsContent(
     searchQuery: String = "",
     onSearchQueryChange: (String) -> Unit = {},
     subtitle: String = "TẤT CẢ SỰ KIỆN",
-    onSearchClick: (() -> Unit)? = null,
     onNotificationClick: (() -> Unit)? = null,
     onProfileClick: (() -> Unit)? = null,
     onFilterClick: (() -> Unit)? = null,
@@ -560,7 +552,6 @@ fun MyTicketsContent(
                 selectedChipIndex = selectedTabIndex,
                 chips = chips,
                 onChipSelected = onTabSelected,
-                onSearchClick = onSearchClick,
                 onNotificationClick = onNotificationClick,
                 onProfileClick = onProfileClick,
                 onFilterClick = onFilterClick,
@@ -582,7 +573,7 @@ fun MyTicketsContent(
                         .padding(24.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    androidx.compose.material3.CircularProgressIndicator(
+                    CircularProgressIndicator(
                         color = EmeraldPrimary,
                         modifier = Modifier.size(36.dp)
                     )
@@ -898,52 +889,54 @@ fun EventClaimBottomSheetContent(
     modifier: Modifier = Modifier
 ) {
     val displayEvents = remember(events) {
-        if (events.isNotEmpty()) events else listOf(
-            EventItemDto(
-                id = "e1111111-1111-1111-1111-111111111111",
-                name = "Hà Nội Rock Fest 2026",
-                description = "Đại nhạc hội Rock cuồng nhiệt quy tụ các ban nhạc hàng đầu",
-                venueName = "SVĐ Quốc Gia Mỹ Đình, Hà Nội",
-                category = "Âm nhạc & Concert",
-                availableTickets = 599,
-                totalTickets = 1000,
-                basePrice = 450000.0,
-                isHotTrend = true
-            ),
-            EventItemDto(
-                id = "e2222222-2222-2222-2222-222222222222",
-                name = "Đại Nhạc Hội Monsoon EDM 2026",
-                description = "Bữa tiệc âm thanh ánh sáng bùng nổ cùng dàn DJ quốc tế",
-                venueName = "TT Hội Nghị Quốc Gia, Hà Nội",
-                category = "Âm nhạc & Concert",
-                availableTickets = 1349,
-                totalTickets = 3000,
-                basePrice = 690000.0,
-                isHotTrend = true
-            ),
-            EventItemDto(
-                id = "e4444444-4444-4444-4444-444444444444",
-                name = "Anh Trai \"Say Hi\" Live Concert 2026",
-                description = "Đêm concert trực tiếp của 30 Anh Trai bùng nổ cùng khán giả",
-                venueName = "Khu Đô Thị Vạn Phúc City, TP.HCM",
-                category = "Âm nhạc & Concert",
-                availableTickets = 2149,
-                totalTickets = 20000,
-                basePrice = 800000.0,
-                isHotTrend = true
-            ),
-            EventItemDto(
-                id = "e3333333-3333-3333-3333-333333333333",
-                name = "Chung Kết Cúp Quốc Gia 2026",
-                description = "Trận derby rực lửa thủ đô quyết định cúp vô địch",
-                venueName = "SVĐ Hàng Đẫy, Hà Nội",
-                category = "Thể thao",
-                availableTickets = 1199,
-                totalTickets = 15000,
-                basePrice = 200000.0,
-                isHotTrend = false
+        events.ifEmpty {
+            listOf(
+                EventItemDto(
+                    id = "e1111111-1111-1111-1111-111111111111",
+                    name = "Hà Nội Rock Fest 2026",
+                    description = "Đại nhạc hội Rock cuồng nhiệt quy tụ các ban nhạc hàng đầu",
+                    venueName = "SVĐ Quốc Gia Mỹ Đình, Hà Nội",
+                    category = "Âm nhạc & Concert",
+                    availableTickets = 599,
+                    totalTickets = 1000,
+                    basePrice = 450000.0,
+                    isHotTrend = true
+                ),
+                EventItemDto(
+                    id = "e2222222-2222-2222-2222-222222222222",
+                    name = "Đại Nhạc Hội Monsoon EDM 2026",
+                    description = "Bữa tiệc âm thanh ánh sáng bùng nổ cùng dàn DJ quốc tế",
+                    venueName = "TT Hội Nghị Quốc Gia, Hà Nội",
+                    category = "Âm nhạc & Concert",
+                    availableTickets = 1349,
+                    totalTickets = 3000,
+                    basePrice = 690000.0,
+                    isHotTrend = true
+                ),
+                EventItemDto(
+                    id = "e4444444-4444-4444-4444-444444444444",
+                    name = "Anh Trai \"Say Hi\" Live Concert 2026",
+                    description = "Đêm concert trực tiếp của 30 Anh Trai bùng nổ cùng khán giả",
+                    venueName = "Khu Đô Thị Vạn Phúc City, TP.HCM",
+                    category = "Âm nhạc & Concert",
+                    availableTickets = 2149,
+                    totalTickets = 20000,
+                    basePrice = 800000.0,
+                    isHotTrend = true
+                ),
+                EventItemDto(
+                    id = "e3333333-3333-3333-3333-333333333333",
+                    name = "Chung Kết Cúp Quốc Gia 2026",
+                    description = "Trận derby rực lửa thủ đô quyết định cúp vô địch",
+                    venueName = "SVĐ Hàng Đẫy, Hà Nội",
+                    category = "Thể thao",
+                    availableTickets = 1199,
+                    totalTickets = 15000,
+                    basePrice = 200000.0,
+                    isHotTrend = false
+                )
             )
-        )
+        }
     }
 
     var claimingEventId by remember { mutableStateOf<String?>(null) }
@@ -1081,7 +1074,7 @@ fun EventClaimBottomSheetContent(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "${String.format("%,.0f", event.basePrice)} đ",
+                                    text = "${String.format(Locale.getDefault(), "%,.0f", event.basePrice)} đ",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextHighEmphasis
