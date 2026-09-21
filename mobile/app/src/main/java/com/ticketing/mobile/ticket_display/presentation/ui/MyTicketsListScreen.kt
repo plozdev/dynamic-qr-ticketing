@@ -1,8 +1,11 @@
 package com.ticketing.mobile.ticket_display.presentation.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.res.painterResource
+import com.ticketing.mobile.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -98,35 +101,14 @@ data class TopBarCategoryChip(
  */
 @Composable
 fun SecureTixLogo(modifier: Modifier = Modifier) {
-    Box(
+    Image(
+        painter = painterResource(id = R.drawable.app_logo),
+        contentDescription = "SecureTix Logo",
         modifier = modifier
             .size(38.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF0F1726))
-            .border(1.dp, EmeraldPrimary.copy(alpha = 0.35f), RoundedCornerShape(8.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Shield,
-                contentDescription = "SecureTix Logo",
-                tint = EmeraldPrimary,
-                modifier = Modifier.size(19.dp)
-            )
-            Spacer(modifier = Modifier.height(1.dp))
-            Text(
-                text = "SECURETIX",
-                fontSize = 5.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = CyanSecondary,
-                letterSpacing = 0.6.sp,
-                lineHeight = 6.sp
-            )
-        }
-    }
+            .border(1.dp, EmeraldPrimary.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+    )
 }
 
 /**
