@@ -1,5 +1,7 @@
 package com.ticketing.mobile.core_network.interceptor
 
+import com.google.android.gms.tasks.Tasks
+import com.google.firebase.auth.FirebaseAuth
 import com.ticketing.mobile.core_network.auth.AuthManager
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -9,14 +11,35 @@ import okhttp3.Response
  * vào mọi Request gửi từ ứng dụng lên Backend Spring Boot.
  * 
  * Mục đích:
- * - Đính kèm JWT Access Token (Bearer) nếu người dùng đã đăng nhập Firebase.
+ * - Đính kèm Firebase JWT ID Token (Authorization: Bearer <token>) để Backend xác thực.
  * - Đính kèm X-User-Id định danh người dùng.
- * - Đính kèm dấu thời gian của client (X-Client-Timestamp) để Backend phát hiện các cuộc tấn công phát lại (Replay Attacks).
+ * - Đính kèm dấu thời gian của client (X-Client-Timestamp).
  * - Định danh nền tảng ứng dụng (Android).
  */
 class AuthHeaderInterceptor(
-    private val tokenProvider: () -> String? = { AuthManager.instance.getBearerToken() },
-    private val userIdProvider: () -> String = { AuthManager.instance.getCurrentUserId() }
+    private val tokenProvider: () -> String? = {
+        val cached = AuthManager.instance.getBearerToken()
+        if (!cached.isNullOrBlank()) {
+            cached
+        } else {
+            try {
+                val firebaseUser = FirebaseAuth.getInstance().currentUser
+                if (firebaseUser != null) {
+                    val tokenResult = Tasks.await(firebaseUser.getIdToken(false))
+                    val freshToken = tokenResult.token
+                    if (!freshToken.isNullOrBlank()) {
+                        AuthManager.instance.setBearerToken(freshToken)
+                    }
+                    freshToken
+                } else null
+            } catch (e: Exception) {
+                null
+            }
+        }
+    },
+    private val userIdProvider: () -> String = {
+        AuthManager.instance.getCurrentUserId()
+    }
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {

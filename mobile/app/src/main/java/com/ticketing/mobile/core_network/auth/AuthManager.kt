@@ -1,5 +1,6 @@
 package com.ticketing.mobile.core_network.auth
 
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,29 +19,37 @@ sealed interface AuthState {
 
 /**
  * Trình quản lý xác thực và danh tính người dùng trên thiết bị di động.
- * Hỗ trợ đồng thời:
- * 1. Đăng nhập nhanh Demo Account cho nhà phát triển / người chấm bài / kiểm thử.
- * 2. Xác thực Firebase Auth JWT ID Token khi cấu hình google-services.json.
+ * Tích hợp chặt chẽ với Firebase Authentication.
  */
 class AuthManager private constructor() {
 
-    private val _authState = MutableStateFlow<AuthState>(
-        // Khởi tạo mặc định ở trạng thái Demo Account đã sẵn sàng
-        AuthState.Authenticated(
-            userId = DEMO_USER_ID,
-            email = "hoanglong@dynamic-qr.vn",
-            displayName = "Nguyễn Hoàng Long",
-            token = null,
-            isDemo = true
-        )
-    )
+    private val _authState = MutableStateFlow<AuthState>(initInitialAuthState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
+
+    private fun initInitialAuthState(): AuthState {
+        return try {
+            val user = FirebaseAuth.getInstance().currentUser
+            if (user != null) {
+                AuthState.Authenticated(
+                    userId = user.uid,
+                    email = user.email ?: "${user.uid}@dynamic-qr.vn",
+                    displayName = user.displayName ?: "Khán Giả",
+                    token = null,
+                    isDemo = false
+                )
+            } else {
+                AuthState.Unauthenticated
+            }
+        } catch (e: Exception) {
+            AuthState.Unauthenticated
+        }
+    }
 
     fun loginWithDemoUser() {
         _authState.value = AuthState.Authenticated(
             userId = DEMO_USER_ID,
-            email = "hoanglong@dynamic-qr.vn",
-            displayName = "Nguyễn Hoàng Long",
+            email = "demo@dynamic-qr.vn",
+            displayName = "Khán Giả (Demo)",
             token = null,
             isDemo = true
         )
@@ -67,14 +76,28 @@ class AuthManager private constructor() {
         )
     }
 
+    fun setBearerToken(token: String) {
+        val current = _authState.value
+        if (current is AuthState.Authenticated) {
+            _authState.value = current.copy(token = token)
+        }
+    }
+
     fun logout() {
+        try {
+            FirebaseAuth.getInstance().signOut()
+        } catch (ignored: Exception) {}
         _authState.value = AuthState.Unauthenticated
     }
 
     fun getCurrentUserId(): String {
         return when (val state = _authState.value) {
             is AuthState.Authenticated -> state.userId
-            else -> DEMO_USER_ID
+            else -> try {
+                FirebaseAuth.getInstance().currentUser?.uid ?: DEMO_USER_ID
+            } catch (e: Exception) {
+                DEMO_USER_ID
+            }
         }
     }
 

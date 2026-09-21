@@ -24,8 +24,7 @@ class DefaultTicketRemoteDataSource(
 
     override suspend fun fetchTicketById(ticketId: String): NetworkResult<TicketDto> {
         return apiClient.get(
-            endpoint = "/tickets/$ticketId",
-            headers = mapOf("X-User-Id" to "11111111-2222-3333-4444-555555555555")
+            endpoint = "/tickets/$ticketId"
         ) { jsonStr ->
             val obj = org.json.JSONObject(jsonStr)
             TicketDto(

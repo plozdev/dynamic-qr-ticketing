@@ -21,19 +21,15 @@ import java.io.IOException
  */
 class OkHttpApiClient(
     private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(java.time.Duration.ofSeconds(10))
+        .connectTimeout(java.time.Duration.ofSeconds(3))
         .readTimeout(java.time.Duration.ofSeconds(10))
         .addInterceptor(AuthHeaderInterceptor())
         .build(),
-    candidateBaseUrls: List<String> = listOf(
-        "http://10.0.2.2:8080/api/v1",
-        "http://127.0.0.1:8080/api/v1",
-        "http://192.168.2.8:8080/api/v1"
-    )
+    candidateBaseUrls: List<String> = defaultCandidateUrls()
 ) : IApiClient {
 
     constructor(baseUrl: String) : this(
-        candidateBaseUrls = listOf(baseUrl, "http://10.0.2.2:8080/api/v1", "http://127.0.0.1:8080/api/v1", "http://192.168.2.8:8080/api/v1").distinct()
+        candidateBaseUrls = (listOf(baseUrl) + defaultCandidateUrls()).distinct()
     )
 
     private val baseUrls = candidateBaseUrls.toMutableList()
@@ -196,6 +192,33 @@ class OkHttpApiClient(
             NetworkResult.Error(ApiError.NetworkConnection(e))
         } catch (e: Throwable) {
             NetworkResult.Error(ApiError.Unknown(e))
+        }
+    }
+
+    companion object {
+        private fun isEmulator(): Boolean {
+            val fp = android.os.Build.FINGERPRINT ?: ""
+            val hw = android.os.Build.HARDWARE ?: ""
+            val model = android.os.Build.MODEL ?: ""
+            return fp.startsWith("generic") || fp.startsWith("unknown") ||
+                    hw.contains("goldfish") || hw.contains("ranchu") ||
+                    model.contains("google_sdk") || model.contains("Emulator")
+        }
+
+        fun defaultCandidateUrls(): List<String> {
+            return if (isEmulator()) {
+                listOf(
+                    "http://10.0.2.2:8080/api/v1",
+                    "http://127.0.0.1:8080/api/v1",
+                    "http://192.168.2.8:8080/api/v1"
+                )
+            } else {
+                listOf(
+                    "http://127.0.0.1:8080/api/v1",
+                    "http://192.168.2.8:8080/api/v1",
+                    "http://10.0.2.2:8080/api/v1"
+                )
+            }
         }
     }
 }
