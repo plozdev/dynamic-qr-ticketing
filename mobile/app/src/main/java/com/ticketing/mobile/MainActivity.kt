@@ -7,12 +7,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import com.google.firebase.auth.FirebaseAuth
 import com.ticketing.mobile.core_crypto.data.NativeCryptoEngineImpl
 import com.ticketing.mobile.core_network.auth.AuthManager
 import com.ticketing.mobile.gate_scanner.data.datasource.DefaultGateRemoteDataSource
@@ -102,7 +102,16 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                var currentScreen by remember { mutableStateOf(AppScreen.MY_TICKETS) }
+                val hasLoggedInUser = remember {
+                    try {
+                        FirebaseAuth.getInstance().currentUser != null
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+                var currentScreen by remember {
+                    mutableStateOf(if (hasLoggedInUser) AppScreen.MY_TICKETS else AppScreen.LOGIN)
+                }
                 var activeTicketId by remember { mutableStateOf<String?>(null) }
 
                 Surface(
