@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">DynamicQRTicketing</string>
+    <!-- Fallback default_web_client_id đảm bảo compile-time verification an toàn -->
+    <string name="default_web_client_id" translatable="false"></string>
 </resources>

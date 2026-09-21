@@ -1,7 +1,8 @@
+@file:Suppress("DEPRECATION")
+
 package com.ticketing.mobile.ui.auth
 
 import android.app.Activity
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -17,10 +18,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.ticketing.mobile.R
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,7 +37,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,7 +61,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
@@ -75,7 +73,6 @@ import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.ticketing.mobile.core_network.auth.AuthManager
-import com.ticketing.mobile.ticket_display.presentation.ui.SecureTixLogo
 import com.ticketing.mobile.ui.theme.CyanSecondary
 import com.ticketing.mobile.ui.theme.DynamicQRTicketingTheme
 import com.ticketing.mobile.ui.theme.EmeraldPrimary
@@ -83,8 +80,6 @@ import com.ticketing.mobile.ui.theme.FieryError
 import com.ticketing.mobile.ui.theme.ObsidianVoid
 import com.ticketing.mobile.ui.theme.SurfaceContainerHigh
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
-import com.ticketing.mobile.ui.theme.TextMediumEmphasis
-import com.ticketing.mobile.ui.theme.TextMuted
 
 /**
  * Màn hình Đăng nhập SecureTix chuẩn theo thiết kế nguyên mẫu (code.html & screen.png).
@@ -92,7 +87,6 @@ import com.ticketing.mobile.ui.theme.TextMuted
  * Bắt buộc người dùng đăng nhập trước khi truy cập ứng dụng để Backend
  * nhận diện định danh Firebase UID qua header Authorization: Bearer <FIREBASE_ID_TOKEN>.
  */
-@Suppress("DEPRECATION")
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
@@ -102,19 +96,8 @@ fun LoginScreen(
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    // Kiểm tra cấu hình Web Client ID cho Google Sign-In từ google-services.json
-    val webClientIdResId = remember {
-        context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-    }
-    val webClientId = remember(webClientIdResId) {
-        if (webClientIdResId != 0) {
-            try {
-                context.getString(webClientIdResId)
-            } catch (e: Exception) {
-                null
-            }
-        } else null
-    }
+    // Kiểm tra cấu hình Web Client ID trực tiếp qua stringResource (configuration-aware, không dùng reflection)
+    val webClientId = stringResource(id = R.string.default_web_client_id).ifBlank { null }
 
     // Google Sign-In Activity Result Launcher
     val googleSignInLauncher = rememberLauncherForActivityResult(
@@ -260,15 +243,6 @@ fun LoginScreenContent(
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.85f,
         targetValue = 1.15f,
