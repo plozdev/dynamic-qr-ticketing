@@ -206,9 +206,6 @@ public class TicketIssuanceService implements IssueTicketUseCase, ClaimTicketUse
     @Transactional(readOnly = true)
     public List<UserTicketResponse> getUserTickets(UUID userId) {
         List<Ticket> tickets = ticketRepository.findByUserId(userId);
-        if (tickets.isEmpty() && SecurityUtils.DEFAULT_DEMO_USER_ID.equals(userId)) {
-            tickets = ticketRepository.findAll();
-        }
         Instant now = Instant.now();
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.of("Asia/Ho_Chi_Minh"));
 
