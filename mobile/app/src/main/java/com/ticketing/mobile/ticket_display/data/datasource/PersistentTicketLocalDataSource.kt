@@ -82,6 +82,7 @@ class PersistentTicketLocalDataSource(
         val db = dbHelper.writableDatabase
         db.beginTransaction()
         try {
+            db.delete(TABLE_TICKETS, null, null)
             for (ticket in tickets) {
                 val values = ContentValues().apply {
                     put(COL_TICKET_ID, ticket.ticketId)

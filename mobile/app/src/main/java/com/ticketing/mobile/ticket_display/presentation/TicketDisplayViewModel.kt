@@ -61,7 +61,7 @@ class TicketDisplayViewModel(
         }
     }
 
-    fun loadMyTickets(userId: String = "11111111-2222-3333-4444-555555555555") {
+    fun loadMyTickets(userId: String = com.ticketing.mobile.core_network.auth.AuthManager.instance.getCurrentUserId()) {
         if (getMyTicketsUseCase == null) return
         viewModelScope.launch {
             setState { copy(isLoading = true, errorMessage = null) }

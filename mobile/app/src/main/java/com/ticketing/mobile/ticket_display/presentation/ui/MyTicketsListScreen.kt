@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -170,7 +171,8 @@ fun SecureTixTopBar(
     onNotificationClick: (() -> Unit)? = null,
     onProfileClick: (() -> Unit)? = null,
     onFilterClick: (() -> Unit)? = null,
-    onScannerClick: (() -> Unit)? = null
+    onScannerClick: (() -> Unit)? = null,
+    onRefreshClick: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
@@ -211,11 +213,25 @@ fun SecureTixTopBar(
                 }
             }
 
-            // Nút hành động phải (Scanner, Notification, Avatar)
+            // Nút hành động phải (Refresh, Scanner, Notification, Avatar)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                if (onRefreshClick != null) {
+                    IconButton(
+                        onClick = { onRefreshClick.invoke() },
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Làm mới",
+                            tint = EmeraldPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
                 if (onScannerClick != null) {
                     IconButton(
                         onClick = { onScannerClick.invoke() },
@@ -432,6 +448,7 @@ fun MyTicketsListScreen(
         selectedTabIndex = selectedTabIndex,
         onTabSelected = { selectedTabIndex = it },
         tickets = filteredTickets,
+        allTickets = myTickets,
         isLoading = state.isLoading,
         errorMessage = state.errorMessage,
         onRetry = { ticketDisplayViewModel.loadMyTickets() },
@@ -443,33 +460,8 @@ fun MyTicketsListScreen(
         onSearchQueryChange = { searchQuery = it },
         onScannerClick = onScannerClick,
         onProfileClick = onLogoutClick,
-        onClaimClick = { showClaimSheet = true },
         modifier = modifier
     )
-
-    // CỬA SỔ BOTTOM SHEET KHÁM PHÁ & NHẬN VÉ 1-CHẠM
-    if (showClaimSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(
-            onDismissRequest = { showClaimSheet = false },
-            sheetState = sheetState,
-            containerColor = SurfaceContainerHigh,
-            dragHandle = null
-        ) {
-            EventClaimBottomSheetContent(
-                events = state.availableEvents,
-                isClaiming = state.isClaiming,
-                onClaim = { eventId ->
-                    ticketDisplayViewModel.claimTicket(eventId) { success, _ ->
-                        if (success) {
-                            showClaimSheet = false
-                        }
-                    }
-                },
-                onClose = { showClaimSheet = false }
-            )
-        }
-    }
 
     // CỬA SỔ TRƯỢT LÊN / POPUP MODAL DYNAMIC QR (Hiển thị QR hoặc Chi tiết vé)
     if (selectedTicketForModal != null) {
@@ -493,57 +485,46 @@ fun MyTicketsContent(
     tickets: List<UserTicketItem>,
     onTicketClick: (UserTicketItem) -> Unit,
     modifier: Modifier = Modifier,
+    allTickets: List<UserTicketItem> = tickets,
     isLoading: Boolean = false,
     errorMessage: String? = null,
     onRetry: (() -> Unit)? = null,
     searchQuery: String = "",
     onSearchQueryChange: (String) -> Unit = {},
-    subtitle: String = "TẤT CẢ SỰ KIỆN",
+    subtitle: String = "VÉ CỦA TÔI",
     onNotificationClick: (() -> Unit)? = null,
     onProfileClick: (() -> Unit)? = null,
     onFilterClick: (() -> Unit)? = null,
-    onScannerClick: (() -> Unit)? = null,
-    onClaimClick: (() -> Unit)? = null
+    onScannerClick: (() -> Unit)? = null
 ) {
-    val chips = remember {
+    val chips = remember(allTickets) {
         listOf(
-            TopBarCategoryChip(0, "Tất cả", 124),
-            TopBarCategoryChip(1, "Âm nhạc & Concert", 58),
-            TopBarCategoryChip(2, "Thể thao", 32),
-            TopBarCategoryChip(3, "Triển lãm & Festival", 18),
-            TopBarCategoryChip(4, "Kịch nghệ & Sân khấu", 16)
+            TopBarCategoryChip(0, "Tất cả", allTickets.size),
+            TopBarCategoryChip(1, "Âm nhạc & Concert", allTickets.count {
+                it.eventName.contains("Rock", ignoreCase = true) ||
+                it.eventName.contains("EDM", ignoreCase = true) ||
+                it.eventName.contains("Concert", ignoreCase = true) ||
+                it.eventName.contains("Nhạc", ignoreCase = true)
+            }),
+            TopBarCategoryChip(2, "Thể thao", allTickets.count {
+                it.eventName.contains("Sport", ignoreCase = true) ||
+                it.eventName.contains("Bóng", ignoreCase = true) ||
+                it.eventName.contains("Marathon", ignoreCase = true)
+            }),
+            TopBarCategoryChip(3, "Triển lãm & Festival", allTickets.count {
+                it.eventName.contains("Triển lãm", ignoreCase = true) ||
+                it.eventName.contains("Festival", ignoreCase = true)
+            }),
+            TopBarCategoryChip(4, "Kịch nghệ & Sân khấu", allTickets.count {
+                it.eventName.contains("Kịch", ignoreCase = true) ||
+                it.eventName.contains("Sân khấu", ignoreCase = true)
+            })
         )
     }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = ObsidianVoid,
-        floatingActionButton = {
-            if (onClaimClick != null) {
-                FloatingActionButton(
-                    onClick = onClaimClick,
-                    containerColor = EmeraldPrimary,
-                    contentColor = ObsidianVoid,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.ConfirmationNumber,
-                            contentDescription = "Nhận vé 1-chạm"
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Nhận Vé 1-Chạm",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-        },
         topBar = {
             SecureTixTopBar(
                 subtitle = subtitle,
@@ -555,7 +536,8 @@ fun MyTicketsContent(
                 onNotificationClick = onNotificationClick,
                 onProfileClick = onProfileClick,
                 onFilterClick = onFilterClick,
-                onScannerClick = onScannerClick
+                onScannerClick = onScannerClick,
+                onRefreshClick = onRetry
             )
         }
     ) { innerPadding ->
@@ -613,17 +595,62 @@ fun MyTicketsContent(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(28.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("🎟️", fontSize = 36.sp)
-                        Spacer(modifier = Modifier.height(12.dp))
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .background(SurfaceContainerHigh),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ConfirmationNumber,
+                                contentDescription = null,
+                                tint = EmeraldPrimary,
+                                modifier = Modifier.size(38.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(18.dp))
                         Text(
-                            text = "Bạn chưa có vé nào trong mục này.",
-                            color = TextMediumEmphasis,
-                            fontSize = 14.sp
+                            text = if (searchQuery.isNotBlank()) "Không tìm thấy vé phù hợp" else "Bạn chưa có vé nào",
+                            fontWeight = FontWeight.Bold,
+                            color = TextHighEmphasis,
+                            fontSize = 17.sp
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = if (searchQuery.isNotBlank()) "Hãy thử tìm kiếm với từ khóa khác." else "Vé được cấp từ hệ thống quản trị (Admin Portal) sẽ hiển thị tại đây.",
+                            color = TextMuted,
+                            fontSize = 13.sp,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 24.dp)
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Button(
+                            onClick = { onRetry?.invoke() },
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = ObsidianVoid,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Làm Mới Danh Sách",
+                                color = ObsidianVoid,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
                     }
                 }
             } else {
