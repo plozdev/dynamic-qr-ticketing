@@ -56,10 +56,23 @@ class GateValidationRepositoryImpl(
                         Result.success(validateLocallyOffline(scanResult))
                     }
                     else -> {
+                        var denyMsg = err.messageText
+                        var denyReason = DenyReason.SERVER_REJECTED
+                        if (err is ApiError.HttpError && !err.rawBody.isNullOrBlank()) {
+                            try {
+                                val json = org.json.JSONObject(err.rawBody)
+                                val msg = json.optString("message", "")
+                                if (msg.isNotBlank()) denyMsg = msg
+                                val status = json.optString("status", "")
+                                denyReason = runCatching {
+                                    DenyReason.valueOf(status.trim().uppercase())
+                                }.getOrNull() ?: DenyReason.SERVER_REJECTED
+                            } catch (_: Exception) {}
+                        }
                         Result.success(
                             GateAccessStatus.Denied(
-                                reason = DenyReason.SERVER_REJECTED,
-                                message = err.messageText
+                                reason = denyReason,
+                                message = denyMsg
                             )
                         )
                     }

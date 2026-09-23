@@ -76,7 +76,7 @@ fun GateScannerScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var demoPayloadInput by remember {
-        mutableStateOf("TICKETING:a1111111-0000-0000-0000-000000000001:9999999999:demoToken")
+        mutableStateOf("")
     }
 
     Surface(
@@ -247,6 +247,7 @@ fun GateScannerScreen(
                         value = demoPayloadInput,
                         onValueChange = { demoPayloadInput = it },
                         label = { Text("Payload Dynamic QR") },
+                        placeholder = { Text("TICKETING:<ticketId>:<epoch>:<totp>", color = TextMuted) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
                         colors = OutlinedTextFieldDefaults.colors(
@@ -268,7 +269,7 @@ fun GateScannerScreen(
                                 )
                             )
                         },
-                        enabled = !state.isValidating,
+                        enabled = !state.isValidating && demoPayloadInput.isNotBlank(),
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(

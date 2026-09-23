@@ -1,41 +1,42 @@
 package com.ticketing.mobile.gate_scanner.data.datasource
 
+import com.ticketing.mobile.core_network.client.IApiClient
+import com.ticketing.mobile.core_network.client.OkHttpApiClient
 import com.ticketing.mobile.core_network.model.NetworkResult
 import com.ticketing.mobile.gate_scanner.data.dto.GateValidationRequestDto
 import com.ticketing.mobile.gate_scanner.data.dto.GateValidationResponseDto
+import org.json.JSONObject
 
 /**
- * Triển khai IGateRemoteDataSource gửi yêu cầu soát vé lên Server (có phản hồi mô phỏng).
+ * Triển khai IGateRemoteDataSource gửi yêu cầu soát vé trực tiếp lên Backend REST API.
  */
-class DefaultGateRemoteDataSource : IGateRemoteDataSource {
+class DefaultGateRemoteDataSource(
+    private val apiClient: IApiClient = OkHttpApiClient()
+) : IGateRemoteDataSource {
 
     override suspend fun verifyAndCheckIn(request: GateValidationRequestDto): NetworkResult<GateValidationResponseDto> {
-        val parts = request.rawPayload.split(":")
-        val isFormatValid = parts.size >= 4 && parts[0] == "TICKETING"
+        val payload = JSONObject().apply {
+            put("rawQrPayload", request.rawPayload)
+        }
 
-        return if (isFormatValid) {
-            NetworkResult.Success(
-                GateValidationResponseDto(
-                    isAllowed = true,
-                    ticketId = parts[1],
-                    attendeeName = "Nguyễn Hoàng Long",
-                    seatNumber = "VIP-A12",
-                    checkInTimestamp = System.currentTimeMillis() / 1000,
-                    rejectionReasonCode = null,
-                    message = "Xác thực thành công tại cổng ${request.gateId}"
-                )
-            )
-        } else {
-            NetworkResult.Success(
-                GateValidationResponseDto(
-                    isAllowed = false,
-                    ticketId = null,
-                    attendeeName = null,
-                    seatNumber = null,
-                    checkInTimestamp = null,
-                    rejectionReasonCode = "INVALID_SIGNATURE",
-                    message = "Mã QR không đúng định dạng hệ thống"
-                )
+        return apiClient.post(
+            endpoint = "/gates/${request.gateId}/validate",
+            bodyJson = payload.toString()
+        ) { jsonStr ->
+            val obj = JSONObject(jsonStr)
+            val isSuccess = obj.optBoolean("success", false)
+            val status = obj.optString("status", if (isSuccess) "GRANTED" else "DENIED")
+            val message = obj.optString("message", "")
+            val ticketId = if (obj.has("ticketId") && !obj.isNull("ticketId")) obj.getString("ticketId") else null
+
+            GateValidationResponseDto(
+                isAllowed = isSuccess,
+                ticketId = ticketId,
+                attendeeName = null,
+                seatNumber = null,
+                checkInTimestamp = System.currentTimeMillis() / 1000,
+                rejectionReasonCode = if (isSuccess) null else status,
+                message = message
             )
         }
     }
