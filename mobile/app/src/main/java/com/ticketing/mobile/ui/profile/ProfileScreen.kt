@@ -31,12 +31,9 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -73,7 +70,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ticketing.mobile.core_network.auth.AuthManager
 import com.ticketing.mobile.core_network.auth.AuthState
-import com.ticketing.mobile.core_network.client.OkHttpApiClient
 import com.ticketing.mobile.ui.theme.AmberTertiary
 import com.ticketing.mobile.ui.theme.CyanSecondary
 import com.ticketing.mobile.ui.theme.DynamicQRTicketingTheme
@@ -89,8 +85,7 @@ import com.ticketing.mobile.ui.theme.TextMuted
 
 /**
  * Màn hình Hồ sơ người dùng (Profile Screen).
- * Hiển thị thông tin định danh người dùng hiện tại, trạng thái kết nối máy chủ,
- * và các tùy chọn tài khoản cùng nút Đăng xuất an toàn.
+ * Hiển thị thông tin định danh người dùng và tùy chọn đăng xuất.
  */
 @Composable
 fun ProfileScreen(
@@ -101,32 +96,26 @@ fun ProfileScreen(
 ) {
     val authState by authManager.authState.collectAsState()
 
-    val (userId, email, displayName, isDemo, hasToken) = when (val state = authState) {
+    val (userId, email, displayName, isDemo) = when (val state = authState) {
         is AuthState.Authenticated -> ProfileData(
             userId = state.userId,
             email = state.email,
             displayName = state.displayName.ifBlank { "Người dùng SecureTix" },
-            isDemo = state.isDemo,
-            hasToken = !state.token.isNullOrBlank()
+            isDemo = state.isDemo
         )
         else -> ProfileData(
             userId = "Chưa xác thực",
             email = "N/A",
             displayName = "Khách",
-            isDemo = false,
-            hasToken = false
+            isDemo = false
         )
     }
-
-    val serverUrl = OkHttpApiClient.customBaseUrl ?: "Mặc định (Auto-detect / 127.0.0.1 / LAN)"
 
     ProfileScreenContent(
         userId = userId,
         email = email,
         displayName = displayName,
         isDemo = isDemo,
-        hasToken = hasToken,
-        serverUrl = serverUrl,
         onBackClick = onBackClick,
         onLogoutClick = onLogoutClick,
         modifier = modifier
@@ -137,8 +126,7 @@ private data class ProfileData(
     val userId: String,
     val email: String,
     val displayName: String,
-    val isDemo: Boolean,
-    val hasToken: Boolean
+    val isDemo: Boolean
 )
 
 /**
@@ -150,8 +138,6 @@ fun ProfileScreenContent(
     email: String,
     displayName: String,
     isDemo: Boolean,
-    hasToken: Boolean,
-    serverUrl: String,
     onBackClick: () -> Unit,
     onLogoutClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -385,64 +371,6 @@ fun ProfileScreenContent(
                         iconTint = CyanSecondary
                     )
 
-                    if (hasToken) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = OutlineBorder.copy(alpha = 0.4f)
-                        )
-
-                        // Token
-                        ProfileInfoRow(
-                            icon = Icons.Default.VpnKey,
-                            label = "Phiên làm việc (Token)",
-                            value = "JWT Bearer Active",
-                            iconTint = EmeraldPrimary
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // --- THÔNG TIN HỆ THỐNG & KẾT NỐI (CARD) ---
-            Text(
-                text = "HỆ THỐNG & MÁY CHỦ",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = CyanSecondary,
-                letterSpacing = 1.sp,
-                modifier = Modifier.padding(horizontal = 24.dp, vertical = 6.dp)
-            )
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceContainerHigh),
-                border = BorderStroke(1.dp, OutlineBorder.copy(alpha = 0.5f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Server URL
-                    ProfileInfoRow(
-                        icon = Icons.Default.Dns,
-                        label = "Địa chỉ Server API",
-                        value = serverUrl,
-                        iconTint = AmberTertiary
-                    )
-
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = OutlineBorder.copy(alpha = 0.4f)
-                    )
-
-                    // Crypto Engine
-                    ProfileInfoRow(
-                        icon = Icons.Default.Security,
-                        label = "Thuật toán Dynamic QR",
-                        value = "ECC Curve25519 & TOTP (Native C++)",
-                        iconTint = EmeraldPrimary
-                    )
                 }
             }
 
@@ -595,8 +523,6 @@ fun ProfileScreenPreview() {
             email = "hoanglong@dynamic-qr.vn",
             displayName = "Nguyễn Hoàng Long (Demo)",
             isDemo = true,
-            hasToken = true,
-            serverUrl = "http://127.0.0.1:8080/api/v1",
             onBackClick = {},
             onLogoutClick = {}
         )

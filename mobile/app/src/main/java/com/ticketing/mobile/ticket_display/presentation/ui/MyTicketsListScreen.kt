@@ -1,6 +1,5 @@
 package com.ticketing.mobile.ticket_display.presentation.ui
 
-import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,13 +28,11 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.ConfirmationNumber
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -47,7 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import com.ticketing.mobile.ticket_display.data.dto.EventItemDto
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -81,11 +77,9 @@ import com.ticketing.mobile.ui.theme.SurfaceContainerHighest
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 import com.ticketing.mobile.ui.theme.TextMuted
-import java.util.Locale
-import androidx.compose.ui.platform.LocalLocale
 
 /**
- * Mục chip lọc danh mục sự kiện kèm số lượng.
+ * Chip lọc vé theo trạng thái check-in kèm số lượng.
  */
 data class TopBarCategoryChip(
     val id: Int,
@@ -109,7 +103,7 @@ fun SecureTixLogo(modifier: Modifier = Modifier) {
 }
 
 /**
- * Chip phân loại sự kiện phong cách Obsidian Pass với huy hiệu số lượng.
+ * Chip lọc trạng thái vé với huy hiệu số lượng.
  */
 @Composable
 fun CategoryChipItem(
@@ -169,7 +163,6 @@ fun SecureTixTopBar(
     onChipSelected: (Int) -> Unit = {},
     onNotificationClick: (() -> Unit)? = null,
     onProfileClick: (() -> Unit)? = null,
-    onFilterClick: (() -> Unit)? = null,
     onScannerClick: (() -> Unit)? = null,
     onRefreshClick: (() -> Unit)? = null
 ) {
@@ -346,17 +339,6 @@ fun SecureTixTopBar(
                     )
                 }
             }
-            IconButton(
-                onClick = { onFilterClick?.invoke() },
-                modifier = Modifier.size(28.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Tune,
-                    contentDescription = "Bộ lọc nâng cao",
-                    tint = TextMediumEmphasis,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
         }
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -391,14 +373,13 @@ fun SecureTixTopBar(
 fun MyTicketsListScreen(
     ticketDisplayViewModel: TicketDisplayViewModel,
     modifier: Modifier = Modifier,
-    onTicketSelected: ((UserTicketItem) -> Unit)? = null,
+    onTicketDetails: ((UserTicketItem) -> Unit)? = null,
     onScannerClick: (() -> Unit)? = null,
     onProfileClick: (() -> Unit)? = null,
     onLogoutClick: (() -> Unit)? = null
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    var selectedTicketForModal by remember { mutableStateOf<UserTicketItem?>(null) }
-    var showClaimSheet by remember { mutableStateOf(false) }
+    var checkInTicketId by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
     val state by ticketDisplayViewModel.uiState.collectAsStateWithLifecycle()
@@ -406,42 +387,7 @@ fun MyTicketsListScreen(
     val myTickets = state.myTickets
 
     val filteredTickets = remember(selectedTabIndex, myTickets, searchQuery) {
-        val categoryFiltered = when (selectedTabIndex) {
-            0 -> myTickets // Tất cả
-            1 -> myTickets.filter {
-                it.eventName.contains("Rock", ignoreCase = true) ||
-                it.eventName.contains("EDM", ignoreCase = true) ||
-                it.eventName.contains("Concert", ignoreCase = true) ||
-                it.eventName.contains("Nhạc", ignoreCase = true)
-            } // Âm nhạc & Concert
-            2 -> myTickets.filter {
-                it.eventName.contains("Sport", ignoreCase = true) ||
-                it.eventName.contains("Bóng", ignoreCase = true) ||
-                it.eventName.contains("Marathon", ignoreCase = true)
-            } // Thể thao
-            3 -> myTickets.filter {
-                it.eventName.contains("Triển lãm", ignoreCase = true) ||
-                it.eventName.contains("Festival", ignoreCase = true)
-            } // Triển lãm & Festival
-            4 -> myTickets.filter {
-                it.eventName.contains("Kịch", ignoreCase = true) ||
-                it.eventName.contains("Sân khấu", ignoreCase = true)
-            } // Kịch nghệ & Sân khấu
-            else -> myTickets
-        }
-
-        if (searchQuery.isBlank()) {
-            categoryFiltered
-        } else {
-            val query = searchQuery.trim().lowercase()
-            categoryFiltered.filter {
-                it.eventName.lowercase().contains(query) ||
-                it.venue.lowercase().contains(query) ||
-                it.attendeeName.lowercase().contains(query) ||
-                it.tierName.lowercase().contains(query) ||
-                it.ticketId.lowercase().contains(query)
-            }
-        }
+        filterAndSortTickets(myTickets, selectedTabIndex, searchQuery, System.currentTimeMillis() / 1000)
     }
 
     MyTicketsContent(
@@ -452,10 +398,8 @@ fun MyTicketsListScreen(
         isLoading = state.isLoading,
         errorMessage = state.errorMessage,
         onRetry = { ticketDisplayViewModel.loadMyTickets() },
-        onTicketClick = { ticket ->
-            selectedTicketForModal = ticket
-            onTicketSelected?.invoke(ticket)
-        },
+        onTicketClick = { ticket -> onTicketDetails?.invoke(ticket) },
+        onStartCheckIn = { ticket -> checkInTicketId = ticket.ticketId },
         searchQuery = searchQuery,
         onSearchQueryChange = { searchQuery = it },
         onScannerClick = onScannerClick,
@@ -463,13 +407,12 @@ fun MyTicketsListScreen(
         modifier = modifier
     )
 
-    // CỬA SỔ TRƯỢT LÊN / POPUP MODAL DYNAMIC QR (Hiển thị QR hoặc Chi tiết vé)
-    if (selectedTicketForModal != null) {
+    // Chỉ nút check-in mới mở QR; thông tin vé có màn hình riêng.
+    if (checkInTicketId != null) {
         TicketQrSlideUpModal(
-            ticketId = selectedTicketForModal!!.ticketId,
+            ticketId = checkInTicketId!!,
             viewModel = ticketDisplayViewModel,
-            ticketItem = selectedTicketForModal,
-            onDismiss = { selectedTicketForModal = null }
+            onDismiss = { checkInTicketId = null }
         )
     }
 }
@@ -484,6 +427,7 @@ fun MyTicketsContent(
     onTabSelected: (Int) -> Unit,
     tickets: List<UserTicketItem>,
     onTicketClick: (UserTicketItem) -> Unit,
+    onStartCheckIn: (UserTicketItem) -> Unit = {},
     modifier: Modifier = Modifier,
     allTickets: List<UserTicketItem> = tickets,
     isLoading: Boolean = false,
@@ -494,30 +438,20 @@ fun MyTicketsContent(
     subtitle: String = "VÉ CỦA TÔI",
     onNotificationClick: (() -> Unit)? = null,
     onProfileClick: (() -> Unit)? = null,
-    onFilterClick: (() -> Unit)? = null,
     onScannerClick: (() -> Unit)? = null
 ) {
     val chips = remember(allTickets) {
         listOf(
             TopBarCategoryChip(0, "Tất cả", allTickets.size),
-            TopBarCategoryChip(1, "Âm nhạc & Concert", allTickets.count {
-                it.eventName.contains("Rock", ignoreCase = true) ||
-                it.eventName.contains("EDM", ignoreCase = true) ||
-                it.eventName.contains("Concert", ignoreCase = true) ||
-                it.eventName.contains("Nhạc", ignoreCase = true)
+            TopBarCategoryChip(1, "Chưa check-in", allTickets.count {
+                it.status == UserTicketCheckInStatus.READY_TO_CHECK_IN ||
+                    it.status == UserTicketCheckInStatus.NOT_YET_CHECK_IN
             }),
-            TopBarCategoryChip(2, "Thể thao", allTickets.count {
-                it.eventName.contains("Sport", ignoreCase = true) ||
-                it.eventName.contains("Bóng", ignoreCase = true) ||
-                it.eventName.contains("Marathon", ignoreCase = true)
+            TopBarCategoryChip(2, "Đã check-in", allTickets.count {
+                it.status == UserTicketCheckInStatus.CHECKED_IN
             }),
-            TopBarCategoryChip(3, "Triển lãm & Festival", allTickets.count {
-                it.eventName.contains("Triển lãm", ignoreCase = true) ||
-                it.eventName.contains("Festival", ignoreCase = true)
-            }),
-            TopBarCategoryChip(4, "Kịch nghệ & Sân khấu", allTickets.count {
-                it.eventName.contains("Kịch", ignoreCase = true) ||
-                it.eventName.contains("Sân khấu", ignoreCase = true)
+            TopBarCategoryChip(3, "Đã thu hồi", allTickets.count {
+                it.status == UserTicketCheckInStatus.REVOKED
             })
         )
     }
@@ -535,7 +469,6 @@ fun MyTicketsContent(
                 onChipSelected = onTabSelected,
                 onNotificationClick = onNotificationClick,
                 onProfileClick = onProfileClick,
-                onFilterClick = onFilterClick,
                 onScannerClick = onScannerClick,
                 onRefreshClick = onRetry
             )
@@ -618,7 +551,7 @@ fun MyTicketsContent(
                         }
                         Spacer(modifier = Modifier.height(18.dp))
                         Text(
-                            text = if (searchQuery.isNotBlank()) "Không tìm thấy vé phù hợp" else "Bạn chưa có vé nào",
+                            text = if (searchQuery.isNotBlank() || selectedTabIndex != 0) "Không có vé phù hợp" else "Bạn chưa có vé nào",
                             fontWeight = FontWeight.Bold,
                             color = TextHighEmphasis,
                             fontSize = 17.sp
@@ -663,7 +596,8 @@ fun MyTicketsContent(
                     items(tickets) { ticket ->
                         UserTicketCard(
                             ticket = ticket,
-                            onClick = { onTicketClick(ticket) }
+                            onClick = { onTicketClick(ticket) },
+                            onStartCheckIn = { onStartCheckIn(ticket) }
                         )
                     }
                 }
@@ -676,7 +610,8 @@ fun MyTicketsContent(
 fun UserTicketCard(
     ticket: UserTicketItem,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onStartCheckIn: () -> Unit = {}
 ) {
     Card(
         modifier = modifier
@@ -797,21 +732,33 @@ fun UserTicketCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                Button(
-                    onClick = onClick,
+                Column(horizontalAlignment = Alignment.End) {
+                    Button(
+                        onClick = onClick,
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) EmeraldPrimary else SurfaceContainerHighest
+                        containerColor = SurfaceContainerHighest
                     ),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
-                        text = if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) "Mở Dynamic QR" else "Xem Chi Tiết",
-                        color = if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN) ObsidianVoid else TextHighEmphasis,
+                        text = "Xem Chi Tiết",
+                        color = TextHighEmphasis,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         maxLines = 1
                     )
+                }
+                    if (ticket.status == UserTicketCheckInStatus.READY_TO_CHECK_IN && ticket.isCheckInOpen) {
+                        Button(
+                        onClick = onStartCheckIn,
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Bắt đầu check-in", color = ObsidianVoid, fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                    }
+                    }
                 }
             }
         }
@@ -904,200 +851,6 @@ fun UserTicketCardLockedPreview() {
     }
 }
 
-/**
- * Nội dung Bottom Sheet Khám Phá & Nhận Vé Nhanh (1-Click Claim).
- */
-@SuppressLint("NonObservableLocale")
-@Composable
-fun EventClaimBottomSheetContent(
-    events: List<EventItemDto>,
-    isClaiming: Boolean,
-    onClaim: (String) -> Unit,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val displayEvents = events
-
-    var claimingEventId by remember { mutableStateOf<String?>(null) }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .padding(top = 16.dp, bottom = 32.dp)
-    ) {
-        // --- HEADER ---
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "KHÁM PHÁ & NHẬN VÉ NHANH",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = EmeraldPrimary,
-                    letterSpacing = 1.2.sp
-                )
-                Text(
-                    text = "Sự Kiện Nổi Bật",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = TextHighEmphasis
-                )
-            }
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(SurfaceContainerHighest)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Clear,
-                    contentDescription = "Đóng",
-                    tint = TextMediumEmphasis,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // --- EVENT CARDS LIST ---
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(displayEvents) { event ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = event.category ?: "Sự Kiện",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = CyanSecondary
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .clip(CircleShape)
-                                    .background(EmeraldPrimary.copy(alpha = 0.15f))
-                                    .border(1.dp, EmeraldPrimary.copy(alpha = 0.4f), CircleShape)
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            ) {
-                                Text(
-                                    text = "Còn ${event.availableTickets} vé",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EmeraldPrimary
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = event.name,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextHighEmphasis,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = TextMuted,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = event.venueName ?: "Chưa xác định địa điểm",
-                                fontSize = 12.sp,
-                                color = TextMediumEmphasis,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        HorizontalDivider(color = SurfaceContainerHighest)
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "GIÁ VÉ",
-                                    fontSize = 9.sp,
-                                    color = TextMuted,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "${String.format(LocalLocale.current.platformLocale, "%,.0f", event.basePrice)} đ",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextHighEmphasis
-                                )
-                            }
-
-                            val isCurrentClaiming = isClaiming && claimingEventId == event.id
-                            Button(
-                                onClick = {
-                                    claimingEventId = event.id
-                                    onClaim(event.id)
-                                },
-                                enabled = !isClaiming,
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = EmeraldPrimary,
-                                    contentColor = ObsidianVoid
-                                )
-                            ) {
-                                if (isCurrentClaiming) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = ObsidianVoid,
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Đang nhận...", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.ConfirmationNumber,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Nhận Vé 1-Chạm", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Preview(name = "SecureTix Top Bar Preview", showBackground = true, backgroundColor = 0xFF0C1322)
 @Composable
@@ -1110,10 +863,9 @@ fun SecureTixTopBarPreview() {
             selectedChipIndex = 0,
             chips = listOf(
                 TopBarCategoryChip(0, "Tất cả", 124),
-                TopBarCategoryChip(1, "Âm nhạc & Concert", 58),
-                TopBarCategoryChip(2, "Thể thao", 32),
-                TopBarCategoryChip(3, "Triển lãm & Festival", 18),
-                TopBarCategoryChip(4, "Kịch nghệ & Sân khấu", 16)
+                TopBarCategoryChip(1, "Chưa check-in", 58),
+                TopBarCategoryChip(2, "Đã check-in", 32),
+                TopBarCategoryChip(3, "Đã thu hồi", 18)
             ),
             onChipSelected = {}
         )

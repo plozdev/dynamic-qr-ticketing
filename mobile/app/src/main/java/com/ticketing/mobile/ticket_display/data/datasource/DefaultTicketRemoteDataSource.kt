@@ -52,6 +52,7 @@ class DefaultTicketRemoteDataSource(
                 val eventName = obj.optString("eventName", "Sự Kiện")
                 val venue = obj.optString("venueName", "Chưa xác định")
                 val startIso = obj.optString("startDateTime")
+                val eventEpochSeconds = runCatching { Instant.parse(startIso).epochSecond }.getOrDefault(0L)
                 val dateDisplay = try {
                     dateFormatter.format(Instant.parse(startIso))
                 } catch (e: Exception) {
@@ -84,7 +85,8 @@ class DefaultTicketRemoteDataSource(
                         gateInfo = gateInfo,
                         checkInNote = checkInNote,
                         checkInOpensAtEpochSeconds = checkInOpensAt,
-                        isCheckInOpen = isCheckInOpen
+                        isCheckInOpen = isCheckInOpen,
+                        eventEpochSeconds = eventEpochSeconds
                     )
                 )
             }

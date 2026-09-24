@@ -90,6 +90,7 @@ class PersistentTicketLocalDataSource(
                     put(COL_EVENT_NAME, ticket.eventName)
                     put(COL_VENUE, ticket.venue)
                     put(COL_DATE_DISPLAY, ticket.dateDisplay)
+                    put(COL_EVENT_EPOCH, ticket.eventEpochSeconds)
                     put(COL_SEAT_NUMBER, ticket.seatNumber)
                     put(COL_ATTENDEE_NAME, ticket.attendeeName)
                     put(COL_TIER_NAME, ticket.tierName)
@@ -149,7 +150,8 @@ class PersistentTicketLocalDataSource(
                         gateInfo = it.getString(it.getColumnIndexOrThrow(COL_GATE_INFO)) ?: "CỔNG CHÍNH",
                         checkInNote = it.getString(it.getColumnIndexOrThrow(COL_CHECK_IN_NOTE)) ?: "",
                         checkInOpensAtEpochSeconds = it.getLong(it.getColumnIndexOrThrow(COL_CHECK_IN_OPENS_AT)),
-                        isCheckInOpen = it.getInt(it.getColumnIndexOrThrow(COL_IS_CHECK_IN_OPEN)) == 1
+                        isCheckInOpen = it.getInt(it.getColumnIndexOrThrow(COL_IS_CHECK_IN_OPEN)) == 1,
+                        eventEpochSeconds = it.getLong(it.getColumnIndexOrThrow(COL_EVENT_EPOCH))
                     )
                 )
             }

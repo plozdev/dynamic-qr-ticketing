@@ -24,7 +24,9 @@ class AuthHeaderInterceptor(
         }
         builder.header("X-App-Platform", "Android")
         builder.header("X-Client-Timestamp", (System.currentTimeMillis() / 1000).toString())
-        builder.header("Accept", "application/json")
+        if (originalRequest.header("Accept").isNullOrBlank()) {
+            builder.header("Accept", "application/json")
+        }
 
         return chain.proceed(builder.build())
     }

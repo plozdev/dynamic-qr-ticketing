@@ -9,27 +9,18 @@ import org.junit.Test
 class AuthManagerTest {
 
     @Test
-    fun testDemoUserLogin() {
+    fun testLoginStoresBackendSession() {
         val authManager = AuthManager.instance
-        authManager.loginWithDemoUser()
+        authManager.login("user-123", "test@example.com", "Test User", "session-token")
 
         val state = authManager.authState.value
         assertTrue(state is AuthState.Authenticated)
         val auth = state as AuthState.Authenticated
-        assertEquals(AuthManager.DEMO_USER_ID, auth.userId)
-        assertTrue(auth.isDemo)
-    }
-
-    @Test
-    fun testEmailLogin() {
-        val authManager = AuthManager.instance
-        authManager.loginWithEmail("test@example.com", "Nguyễn Test")
-
-        val state = authManager.authState.value
-        assertTrue(state is AuthState.Authenticated)
-        val auth = state as AuthState.Authenticated
+        assertEquals("user-123", auth.userId)
         assertEquals("test@example.com", auth.email)
-        assertEquals("Nguyễn Test", auth.displayName)
+        assertEquals("Test User", auth.displayName)
+        assertEquals("session-token", authManager.getBearerToken())
+        assertEquals(false, auth.isDemo)
     }
 
     @Test
@@ -39,5 +30,6 @@ class AuthManagerTest {
 
         val state = authManager.authState.value
         assertTrue(state is AuthState.Unauthenticated)
+        assertEquals(null, authManager.getBearerToken())
     }
 }

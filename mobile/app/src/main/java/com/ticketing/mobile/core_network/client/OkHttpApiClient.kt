@@ -33,7 +33,6 @@ class OkHttpApiClient(
     )
 
     private val baseUrls = candidateBaseUrls.toMutableList()
-    @Volatile private var activeBaseUrl: String? = null
 
     /**
      * Gửi HTTP GET request.
@@ -198,6 +197,19 @@ class OkHttpApiClient(
     companion object {
         @Volatile
         var customBaseUrl: String? = null
+
+        @Volatile
+        var activeBaseUrl: String? = null
+
+        fun getCandidates(): List<String> {
+            val active = activeBaseUrl
+            val list = defaultCandidateUrls()
+            return if (active != null) {
+                (listOf(active) + list).distinct()
+            } else {
+                list
+            }
+        }
 
         private fun isEmulator(): Boolean {
             val fp = android.os.Build.FINGERPRINT ?: ""

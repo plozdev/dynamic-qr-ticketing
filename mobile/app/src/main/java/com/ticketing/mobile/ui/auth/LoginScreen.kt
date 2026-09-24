@@ -1,7 +1,6 @@
 package com.ticketing.mobile.ui.auth
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
@@ -21,8 +20,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -38,21 +36,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Badge
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockReset
-import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -66,7 +61,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -79,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -107,7 +102,6 @@ import com.ticketing.mobile.ui.theme.ObsidianVoid
 import com.ticketing.mobile.ui.theme.OutlineBorder
 import com.ticketing.mobile.ui.theme.SurfaceContainer
 import com.ticketing.mobile.ui.theme.SurfaceContainerHigh
-import com.ticketing.mobile.ui.theme.SurfaceContainerHighest
 import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 import com.ticketing.mobile.ui.theme.TextMuted
@@ -117,11 +111,8 @@ import org.json.JSONObject
 import kotlin.time.Duration.Companion.milliseconds
 
 data class AuthForm(
-    val isSignup: Boolean,
     val username: String,
-    val password: String,
-    val displayName: String = "",
-    val email: String = ""
+    val password: String
 )
 
 private data class AuthResponse(
@@ -133,7 +124,7 @@ private data class AuthResponse(
 )
 
 /**
- * Màn hình Đăng nhập & Đăng ký SecureTix với giao diện Obsidian Neon cao cấp.
+ * Màn hình đăng nhập SecureTix với giao diện Obsidian Neon.
  * Tích hợp hiệu ứng chuyển cảnh thành công mượt mà (Success Celebration Animation),
  * đưa logo vào trung tâm cùng huy hiệu xác thực trước khi chuyển vào kho vé.
  */
@@ -148,15 +139,12 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isSuccess by remember { mutableStateOf(false) }
     var successAccountName by remember { mutableStateOf("") }
-    var isSignupSuccess by remember { mutableStateOf(false) }
 
     LoginScreenContent(
         isLoading = isLoading,
         errorMessage = errorMessage,
         isSuccess = isSuccess,
         successAccountName = successAccountName,
-        isSignupSuccess = isSignupSuccess,
-        onModeChanged = { errorMessage = null },
         onSubmit = { form ->
             if (!isLoading && !isSuccess) {
                 isLoading = true
@@ -165,12 +153,7 @@ fun LoginScreen(
                     val body = JSONObject()
                         .put("username", form.username.trim())
                         .put("password", form.password)
-                    if (form.isSignup) {
-                        body.put("displayName", form.displayName.trim())
-                        body.put("email", form.email.trim())
-                    }
-                    val endpoint = if (form.isSignup) "/auth/signup" else "/auth/login"
-                    val result = apiClient.post(endpoint, body.toString()) { raw ->
+                    val result = apiClient.post("/auth/login", body.toString()) { raw ->
                         val json = JSONObject(raw)
                         AuthResponse(
                             userId = json.getString("userId"),
@@ -189,7 +172,6 @@ fun LoginScreen(
                             } else {
                                 AuthManager.instance.login(account.userId, account.email, account.displayName, account.token)
                                 successAccountName = account.displayName.ifBlank { account.username }
-                                isSignupSuccess = form.isSignup
                                 isSuccess = true
                                 // Hoạt ảnh thành công chạy trong 1.25s để tạo cảm giác chuyển tiếp mượt mà
                                 delay(1250.milliseconds)
@@ -222,9 +204,8 @@ fun LoginScreen(
 /**
  * Giao diện chính tinh chỉnh (Refined UI):
  * - Hiệu ứng hào quang neon Emerald/Cyan nhịp thở quanh logo.
- * - Thanh chuyển đổi Tab (Đăng nhập / Đăng ký) dạng viên thuốc (Segmented Pill) mượt mà.
  * - Khung Card kính mờ (Glassmorphism Card) với viền gradient công nghệ cao.
- * - Khi đăng nhập/đăng ký thành công: form thu nhỏ mờ dần, logo phóng lớn giữa màn hình
+ * - Khi đăng nhập thành công: form thu nhỏ mờ dần, logo phóng lớn giữa màn hình
  *   kèm huy hiệu Checkmark và thông điệp chào mừng người dùng.
  */
 @Composable
@@ -232,20 +213,13 @@ fun LoginScreenContent(
     isLoading: Boolean,
     errorMessage: String?,
     onSubmit: (AuthForm) -> Unit,
-    onModeChanged: () -> Unit = {},
     isSuccess: Boolean = false,
     successAccountName: String = "",
-    isSignupSuccess: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    var isSignup by rememberSaveable { mutableStateOf(false) }
     var username by rememberSaveable { mutableStateOf("") }
-    var displayName by rememberSaveable { mutableStateOf("") }
-    var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
-    var showConfirmPassword by rememberSaveable { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     // Hiệu ứng nhịp thở cho vầng sáng Logo
@@ -287,19 +261,11 @@ fun LoginScreenContent(
             cleanUsername.isEmpty() -> "Vui lòng nhập tên đăng nhập."
             !Regex("[A-Za-z0-9._-]{3,32}").matches(cleanUsername) ->
                 "Tên đăng nhập cần 3–32 ký tự (chữ, số, '.', '_', '-')."
-            isSignup && displayName.trim().isEmpty() -> "Vui lòng nhập họ và tên của bạn."
-            isSignup && displayName.trim().length > 255 -> "Họ tên không được vượt quá 255 ký tự."
-            isSignup && (email.trim().isEmpty() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()) ->
-                "Vui lòng nhập địa chỉ email hợp lệ."
-            isSignup && email.trim().length > 128 -> "Email không được vượt quá 128 ký tự."
             password.isEmpty() -> "Vui lòng nhập mật khẩu."
-            password.length < 8 -> "Mật khẩu bảo mật phải có ít nhất 8 ký tự."
-            password.length > 72 -> "Mật khẩu chỉ được tối đa 72 ký tự."
-            isSignup && password != confirmPassword -> "Mật khẩu xác nhận không khớp nhau."
             else -> null
         }
         if (validationError == null) {
-            onSubmit(AuthForm(isSignup, cleanUsername, password, displayName, email))
+            onSubmit(AuthForm(cleanUsername, password))
         }
     }
 
@@ -312,13 +278,14 @@ fun LoginScreenContent(
             contentAlignment = Alignment.Center
         ) {
             // ==========================================
-            // 1. GIAO DIỆN FORM ĐĂNG NHẬP / ĐĂNG KÝ
+            // 1. GIAO DIỆN FORM ĐĂNG NHẬP
             // ==========================================
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
+                    .imePadding()
                     .alpha(formAlpha)
                     .offset(y = formOffsetY)
                     .verticalScroll(rememberScrollState())
@@ -391,29 +358,13 @@ fun LoginScreenContent(
                 Spacer(Modifier.height(4.dp))
 
                 Text(
-                    text = if (isSignup) "Tạo tài khoản để sở hữu vé và quét mã bảo mật" else "Chào mừng trở lại! Vui lòng đăng nhập",
+                    text = "Chào mừng trở lại! Vui lòng đăng nhập",
                     color = TextMediumEmphasis,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center
                 )
 
                 Spacer(Modifier.height(24.dp))
-
-                // --- TAB SWITCHER (ĐĂNG NHẬP / ĐĂNG KÝ) ---
-                AuthModeTabSwitcher(
-                    isSignup = isSignup,
-                    onTabSelect = { signupMode ->
-                        if (isSignup != signupMode && !isLoading) {
-                            isSignup = signupMode
-                            validationError = null
-                            onModeChanged()
-                            password = ""
-                            confirmPassword = ""
-                        }
-                    }
-                )
-
-                Spacer(Modifier.height(20.dp))
 
                 // --- CARD KHUNG NHẬP LIỆU CHÍNH (GLASSMORPHIC CARD) ---
                 Card(
@@ -437,26 +388,6 @@ fun LoginScreenContent(
                             .padding(20.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Họ và tên (chỉ khi Đăng ký)
-                        AnimatedVisibility(
-                            visible = isSignup,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            Column {
-                                ThemedInputField(
-                                    value = displayName,
-                                    onValueChange = { displayName = it },
-                                    label = "Họ và tên",
-                                    placeholder = "Nguyễn Văn A",
-                                    leadingIcon = Icons.Default.Badge,
-                                    enabled = !isLoading,
-                                    keyboardType = KeyboardType.Text
-                                )
-                                Spacer(Modifier.height(14.dp))
-                            }
-                        }
-
                         // Tên đăng nhập (Username)
                         ThemedInputField(
                             value = username,
@@ -468,26 +399,6 @@ fun LoginScreenContent(
                             keyboardType = KeyboardType.Ascii
                         )
 
-                        // Email (chỉ khi Đăng ký)
-                        AnimatedVisibility(
-                            visible = isSignup,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            Column {
-                                Spacer(Modifier.height(14.dp))
-                                ThemedInputField(
-                                    value = email,
-                                    onValueChange = { email = it },
-                                    label = "Địa chỉ Email",
-                                    placeholder = "ten@domain.com",
-                                    leadingIcon = Icons.Default.Email,
-                                    enabled = !isLoading,
-                                    keyboardType = KeyboardType.Email
-                                )
-                            }
-                        }
-
                         Spacer(Modifier.height(14.dp))
 
                         // Mật khẩu
@@ -495,7 +406,7 @@ fun LoginScreenContent(
                             value = password,
                             onValueChange = { password = it },
                             label = "Mật khẩu",
-                            placeholder = "Tối thiểu 8 ký tự",
+                            placeholder = "Nhập mật khẩu",
                             leadingIcon = Icons.Default.Lock,
                             enabled = !isLoading,
                             isPassword = true,
@@ -503,29 +414,6 @@ fun LoginScreenContent(
                             onTogglePasswordVisibility = { showPassword = !showPassword },
                             keyboardType = KeyboardType.Password
                         )
-
-                        // Xác nhận Mật khẩu (chỉ khi Đăng ký)
-                        AnimatedVisibility(
-                            visible = isSignup,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            Column {
-                                Spacer(Modifier.height(14.dp))
-                                ThemedInputField(
-                                    value = confirmPassword,
-                                    onValueChange = { confirmPassword = it },
-                                    label = "Xác nhận mật khẩu",
-                                    placeholder = "Nhập lại mật khẩu",
-                                    leadingIcon = Icons.Default.LockReset,
-                                    enabled = !isLoading,
-                                    isPassword = true,
-                                    passwordVisible = showConfirmPassword,
-                                    onTogglePasswordVisibility = { showConfirmPassword = !showConfirmPassword },
-                                    keyboardType = KeyboardType.Password
-                                )
-                            }
-                        }
 
                         // BANNER THÔNG BÁO LỖI
                         val activeError = validationError ?: errorMessage
@@ -590,7 +478,7 @@ fun LoginScreenContent(
                                     horizontalArrangement = Arrangement.Center
                                 ) {
                                     Text(
-                                        text = if (isSignup) "Tạo tài khoản ngay" else "Đăng nhập hệ thống",
+                                        text = "Đăng nhập hệ thống",
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = ObsidianVoid
@@ -609,38 +497,6 @@ fun LoginScreenContent(
                 }
 
                 Spacer(Modifier.height(18.dp))
-
-                // Footer chuyển đổi nhanh
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isSignup) "Đã có tài khoản SecureTix?" else "Chưa có tài khoản?",
-                        color = TextMediumEmphasis,
-                        fontSize = 13.sp
-                    )
-                    TextButton(
-                        onClick = {
-                            if (!isLoading) {
-                                isSignup = !isSignup
-                                validationError = null
-                                onModeChanged()
-                                password = ""
-                                confirmPassword = ""
-                            }
-                        }
-                    ) {
-                        Text(
-                            text = if (isSignup) "Đăng nhập ngay" else "Đăng ký tài khoản",
-                            color = EmeraldPrimaryFixed,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
 
                 // Điều khoản bảo mật
                 Text(
@@ -670,7 +526,6 @@ fun LoginScreenContent(
                 exit = fadeOut(tween(250))
             ) {
                 SuccessCelebrationView(
-                    isSignupSuccess = isSignupSuccess,
                     accountName = successAccountName
                 )
             }
@@ -679,13 +534,12 @@ fun LoginScreenContent(
 }
 
 /**
- * Màn hình Hero chúc mừng đăng nhập/đăng ký thành công:
+ * Màn hình Hero chúc mừng đăng nhập thành công:
  * Hiển thị Logo trung tâm phóng lớn, vầng sáng neon Emerald nở rộng,
  * huy hiệu dấu tick Checkmark và lời chào mừng người dùng.
  */
 @Composable
 private fun SuccessCelebrationView(
-    isSignupSuccess: Boolean,
     accountName: String,
     modifier: Modifier = Modifier
 ) {
@@ -777,7 +631,7 @@ private fun SuccessCelebrationView(
 
         // Tiêu đề thành công
         Text(
-            text = if (isSignupSuccess) "Đăng ký thành công!" else "Xác thực thành công!",
+            text = "Xác thực thành công!",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             color = TextHighEmphasis,
@@ -817,105 +671,6 @@ private fun SuccessCelebrationView(
 }
 
 /**
- * Thanh chuyển đổi chế độ Xác thực dạng Segmented Pill bo tròn.
- */
-@Composable
-private fun AuthModeTabSwitcher(
-    isSignup: Boolean,
-    onTabSelect: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(SurfaceContainerHighest)
-            .border(1.dp, OutlineBorder.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
-            .padding(4.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            // Tab Đăng nhập
-            val loginBgColor by animateColorAsState(
-                targetValue = if (!isSignup) EmeraldPrimary else Color.Transparent,
-                label = "loginTabBg"
-            )
-            val loginTextColor by animateColorAsState(
-                targetValue = if (!isSignup) ObsidianVoid else TextMediumEmphasis,
-                label = "loginTabText"
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(loginBgColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { onTabSelect(false) }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Login,
-                        contentDescription = null,
-                        tint = loginTextColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "Đăng nhập",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = loginTextColor
-                    )
-                }
-            }
-
-            // Tab Đăng ký
-            val signupBgColor by animateColorAsState(
-                targetValue = if (isSignup) EmeraldPrimary else Color.Transparent,
-                label = "signupTabBg"
-            )
-            val signupTextColor by animateColorAsState(
-                targetValue = if (isSignup) ObsidianVoid else TextMediumEmphasis,
-                label = "signupTabText"
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(signupBgColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) { onTabSelect(true) }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.PersonAdd,
-                        contentDescription = null,
-                        tint = signupTextColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = "Đăng ký",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = signupTextColor
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
  * Ô nhập liệu phong cách Cyber Obsidian với viền bo tròn 16dp và màu sắc ánh sáng đồng bộ.
  */
 @Composable
@@ -932,6 +687,8 @@ private fun ThemedInputField(
     onTogglePasswordVisibility: (() -> Unit)? = null,
     keyboardType: KeyboardType = KeyboardType.Text
 ) {
+    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -939,7 +696,15 @@ private fun ThemedInputField(
         placeholder = { Text(placeholder, color = TextMuted, fontSize = 13.sp) },
         singleLine = true,
         enabled = enabled,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .bringIntoViewRequester(bringIntoViewRequester)
+            .onFocusChanged { focusState ->
+                if (focusState.isFocused) scope.launch {
+                    delay(250)
+                    bringIntoViewRequester.bringIntoView()
+                }
+            },
         shape = RoundedCornerShape(16.dp),
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,

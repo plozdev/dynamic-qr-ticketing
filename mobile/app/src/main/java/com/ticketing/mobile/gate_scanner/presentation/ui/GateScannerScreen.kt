@@ -1,5 +1,10 @@
 package com.ticketing.mobile.gate_scanner.presentation.ui
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,12 +43,14 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +61,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ticketing.mobile.gate_scanner.domain.model.GateAccessStatus
 import com.ticketing.mobile.gate_scanner.presentation.GateScannerViewModel
 import com.ticketing.mobile.gate_scanner.presentation.contract.GateScannerIntent
+import com.ticketing.mobile.gate_scanner.presentation.contract.GateScannerEffect
 import com.ticketing.mobile.ui.theme.CyanSecondary
 import com.ticketing.mobile.ui.theme.EmeraldPrimary
 import com.ticketing.mobile.ui.theme.FieryError
@@ -75,6 +83,23 @@ fun GateScannerScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    LaunchedEffect(viewModel) {
+        viewModel.effect.collect { effect ->
+            if (effect is GateScannerEffect.TriggerHapticFeedback) {
+                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                }
+                if (vibrator?.hasVibrator() == true) {
+                    val pattern = if (effect.isSuccess) longArrayOf(0, 75) else longArrayOf(0, 90, 70, 150)
+                    vibrator.vibrate(VibrationEffect.createWaveform(pattern, -1))
+                }
+            }
+        }
+    }
     var demoPayloadInput by remember {
         mutableStateOf("")
     }

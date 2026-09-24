@@ -17,6 +17,5 @@ data class TicketDisplayState(
     val myTickets: List<UserTicketItem> = emptyList(),
     val availableEvents: List<EventItemDto> = emptyList(),
     val dynamicQr: DynamicQrData? = null,
-    val isAutoBrightnessEnabled: Boolean = true,
     val errorMessage: String? = null
 ) : UiState

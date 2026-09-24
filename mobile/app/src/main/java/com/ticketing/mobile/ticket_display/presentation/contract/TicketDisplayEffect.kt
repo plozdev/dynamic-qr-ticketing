@@ -7,6 +7,5 @@ import com.ticketing.mobile.core_mvi.UiEffect
  */
 sealed interface TicketDisplayEffect : UiEffect {
     data class ShowToast(val message: String) : TicketDisplayEffect
-    data class SetScreenBrightness(val maxBrightness: Boolean) : TicketDisplayEffect
     data object TriggerHapticFeedback : TicketDisplayEffect
 }

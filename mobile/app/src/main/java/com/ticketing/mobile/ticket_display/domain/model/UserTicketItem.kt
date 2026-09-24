@@ -25,5 +25,6 @@ data class UserTicketItem(
     val gateInfo: String = "CỔNG CHÍNH",
     val checkInNote: String = "",
     val checkInOpensAtEpochSeconds: Long = 0L,
-    val isCheckInOpen: Boolean = false
+    val isCheckInOpen: Boolean = false,
+    val eventEpochSeconds: Long = 0L
 )

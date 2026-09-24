@@ -64,6 +64,7 @@ class GateScannerViewModel(
                     }
                 }
             }.onFailure { error ->
+                sendEffect(GateScannerEffect.TriggerHapticFeedback(isSuccess = false))
                 sendEffect(GateScannerEffect.ShowMessage(error.message ?: "Lỗi hệ thống soát vé"))
             }
 

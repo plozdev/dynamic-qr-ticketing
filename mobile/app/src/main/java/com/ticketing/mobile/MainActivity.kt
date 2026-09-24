@@ -1,6 +1,5 @@
 package com.ticketing.mobile
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -35,7 +34,7 @@ import com.ticketing.mobile.ticket_display.domain.usecase.GetMyTicketsUseCase
 import com.ticketing.mobile.ticket_display.domain.usecase.GetTicketDetailUseCase
 import com.ticketing.mobile.ticket_display.presentation.TicketDisplayViewModel
 import com.ticketing.mobile.ticket_display.presentation.ui.MyTicketsListScreen
-import com.ticketing.mobile.ticket_display.presentation.ui.TicketDisplayScreen
+import com.ticketing.mobile.ticket_display.presentation.ui.TicketDetailScreen
 import com.ticketing.mobile.ticket_display.presentation.ui.MyTicketsContent
 import com.ticketing.mobile.ticket_display.domain.model.UserTicketItem
 import com.ticketing.mobile.ticket_display.domain.model.UserTicketCheckInStatus
@@ -46,11 +45,12 @@ import com.ticketing.mobile.ui.profile.ProfileScreenContent
 import com.ticketing.mobile.ui.theme.DynamicQRTicketingTheme
 import com.ticketing.mobile.ui.theme.ObsidianVoid
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.collectAsState
 
 enum class AppScreen {
     LOGIN,
     MY_TICKETS,
-    TICKET_DISPLAY,
+    TICKET_DETAILS,
     SCANNER,
     PROFILE
 }
@@ -60,6 +60,14 @@ enum class AppScreen {
  */
 class MainActivity : ComponentActivity() {
 
+    private var ticketDisplayViewModelRef: TicketDisplayViewModel? = null
+
+    override fun onResume() {
+        super.onResume()
+        // Khi mở lại app hoặc resume, tự động tải lại trạng thái vé để không bỏ lỡ lần quét nào
+        ticketDisplayViewModelRef?.loadMyTickets()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -68,7 +76,7 @@ class MainActivity : ComponentActivity() {
         AuthManager.instance.init(applicationContext)
 
         // Phục hồi Server URL tùy chỉnh nếu người dùng đã cấu hình trước đó
-        val prefs = getSharedPreferences("secure_tix_prefs", Context.MODE_PRIVATE)
+        val prefs = getSharedPreferences("secure_tix_prefs", MODE_PRIVATE)
         val savedServerUrl = prefs.getString("custom_server_url", null)
         if (!savedServerUrl.isNullOrBlank()) {
             OkHttpApiClient.customBaseUrl = savedServerUrl
@@ -103,14 +111,16 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             DynamicQRTicketingTheme {
+                val ticketSseClient = remember { com.ticketing.mobile.core_network.sse.DefaultTicketSseClient() }
                 val ticketDisplayViewModel = remember {
                     TicketDisplayViewModel(
                         getTicketDetailUseCase = getTicketDetailUseCase,
                         generateDynamicQrUseCase = generateDynamicQrUseCase,
                         getMyTicketsUseCase = getMyTicketsUseCase,
                         claimTicketUseCase = claimTicketUseCase,
-                        getEventsUseCase = getEventsUseCase
-                    )
+                        getEventsUseCase = getEventsUseCase,
+                        ticketSseClient = ticketSseClient
+                    ).also { ticketDisplayViewModelRef = it }
                 }
 
                 val gateScannerViewModel = remember {
@@ -119,7 +129,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                val initialScreen = if (AuthManager.instance.authState.value is AuthState.Authenticated) {
+                val initialScreen = if (AuthManager.instance.authState.collectAsState().value is AuthState.Authenticated) {
                     AppScreen.MY_TICKETS
                 } else {
                     AppScreen.LOGIN
@@ -138,8 +148,10 @@ class MainActivity : ComponentActivity() {
                         AppScreen.LOGIN -> {
                             LoginScreen(
                                 onLoginSuccess = {
+                                    val uid = AuthManager.instance.getCurrentUserId()
+                                    ticketDisplayViewModel.startObservingTicketUpdates(uid)
+                                    ticketDisplayViewModel.loadMyTickets(uid)
                                     currentScreen = AppScreen.MY_TICKETS
-                                    ticketDisplayViewModel.loadMyTickets(AuthManager.instance.getCurrentUserId())
                                 }
                             )
                         }
@@ -147,9 +159,9 @@ class MainActivity : ComponentActivity() {
                         AppScreen.MY_TICKETS -> {
                             MyTicketsListScreen(
                                 ticketDisplayViewModel = ticketDisplayViewModel,
-                                onTicketSelected = { ticket ->
+                                onTicketDetails = { ticket ->
                                     activeTicketId = ticket.ticketId
-                                    currentScreen = AppScreen.TICKET_DISPLAY
+                                    currentScreen = AppScreen.TICKET_DETAILS
                                 },
                                 onProfileClick = {
                                     currentScreen = AppScreen.PROFILE
@@ -182,12 +194,12 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        AppScreen.TICKET_DISPLAY -> {
+                        AppScreen.TICKET_DETAILS -> {
                             BackHandler {
                                 currentScreen = AppScreen.MY_TICKETS
                             }
                             activeTicketId?.let { ticketId ->
-                                TicketDisplayScreen(
+                                TicketDetailScreen(
                                     viewModel = ticketDisplayViewModel,
                                     ticketId = ticketId,
                                     onBack = { currentScreen = AppScreen.MY_TICKETS }
@@ -295,8 +307,6 @@ fun MainActivityProfilePreview() {
                 email = "hoanglong@dynamic-qr.vn",
                 displayName = "Nguyễn Hoàng Long (Demo)",
                 isDemo = true,
-                hasToken = true,
-                serverUrl = "http://127.0.0.1:8080/api/v1",
                 onBackClick = {},
                 onLogoutClick = {}
             )
