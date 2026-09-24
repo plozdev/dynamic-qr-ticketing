@@ -80,6 +80,11 @@ export const fetchEvents = async (): Promise<Event[]> => {
   return data;
 };
 
+export const setEventCheckInEnabled = async (eventId: string, enabled: boolean): Promise<Event> => {
+  const { data } = await apiClient.put<Event>(`/events/${encodeURIComponent(eventId)}/check-in`, { enabled });
+  return data;
+};
+
 export const createEvent = async (eventData: CreateEventRequest): Promise<Event> => {
   const { data } = await apiClient.post<Event>('/events', eventData);
   return data;

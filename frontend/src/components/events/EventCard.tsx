@@ -7,9 +7,11 @@ import { useToast } from '../../context/ToastContext';
 interface EventCardProps {
   event: Event;
   onSelectForTicket?: (eventId: string) => void;
+  onToggleCheckIn?: (event: Event) => void;
+  checkInUpdating?: boolean;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ event, onSelectForTicket }) => {
+export const EventCard: React.FC<EventCardProps> = ({ event, onSelectForTicket, onToggleCheckIn, checkInUpdating }) => {
   const { success } = useToast();
   const [copied, setCopied] = useState(false);
 
@@ -144,6 +146,16 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onSelectForTicket }
           </button>
         </div>
 
+        {onToggleCheckIn && (
+          <button
+            type="button"
+            disabled={checkInUpdating || event.status !== 'PUBLISHED'}
+            onClick={() => onToggleCheckIn(event)}
+            className="w-full rounded-xl border border-[#00e599]/30 bg-[#00e599]/10 px-3 py-2 text-xs font-semibold text-[#00e599] disabled:opacity-50"
+          >
+            {checkInUpdating ? 'Đang cập nhật...' : event.checkInEnabled ? 'Đóng check-in' : 'Mở check-in'}
+          </button>
+        )}
         {/* Action Button: Cấp vé ngay */}
         {onSelectForTicket && (
           <button

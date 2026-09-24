@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import type { Event } from '../../types';
 
 import { EventCard } from './EventCard';
+import { setEventCheckInEnabled, getApiErrorMessage } from '../../services/api';
+import { useToast } from '../../context/ToastContext';
 import { EventFormModal } from './EventFormModal';
 import { Plus, RefreshCw, Search, Calendar, Sparkles, AlertCircle } from 'lucide-react';
 
@@ -22,6 +24,21 @@ export const EventsTab: React.FC<EventsTabProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [updatingEventId, setUpdatingEventId] = useState<string | null>(null);
+  const { success, error: toastError } = useToast();
+
+  const toggleCheckIn = async (event: Event) => {
+    try {
+      setUpdatingEventId(event.id);
+      await setEventCheckInEnabled(event.id, !event.checkInEnabled);
+      success('Đã cập nhật check-in', event.checkInEnabled ? 'Đã đóng check-in.' : 'Đã mở check-in.');
+      onRefresh();
+    } catch (err) {
+      toastError('Không thể cập nhật check-in', getApiErrorMessage(err));
+    } finally {
+      setUpdatingEventId(null);
+    }
+  };
 
   const filteredEvents = events.filter((ev) => {
     const q = searchTerm.toLowerCase();
@@ -132,6 +149,8 @@ export const EventsTab: React.FC<EventsTabProps> = ({
               key={event.id}
               event={event}
               onSelectForTicket={onSelectForTicket}
+              onToggleCheckIn={toggleCheckIn}
+              checkInUpdating={updatingEventId === event.id}
             />
           ))}
         </div>

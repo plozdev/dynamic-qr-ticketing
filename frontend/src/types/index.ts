@@ -8,6 +8,7 @@ export interface Event {
   startDateTime: string;
   endDateTime: string;
   status?: string;
+  checkInEnabled?: boolean;
   totalCapacity?: number;
   availableTickets?: number;
   createdAt?: string;
