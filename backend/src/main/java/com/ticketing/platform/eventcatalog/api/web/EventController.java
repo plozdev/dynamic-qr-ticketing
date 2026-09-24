@@ -4,6 +4,7 @@ import com.ticketing.platform.eventcatalog.api.dto.CreateEventRequest;
 import com.ticketing.platform.eventcatalog.application.dto.EventResponse;
 import com.ticketing.platform.eventcatalog.application.port.in.CreateEventUseCase;
 import com.ticketing.platform.eventcatalog.application.port.in.GetEventQuery;
+import com.ticketing.platform.eventcatalog.application.service.EventCatalogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +30,15 @@ public class EventController {
 
     private final CreateEventUseCase createEventUseCase;
     private final GetEventQuery getEventQuery;
+    private final EventCatalogService eventCatalogService;
+
+    public record CheckInControlRequest(boolean enabled) {}
+
+    @PutMapping("/{id}/check-in")
+    public ResponseEntity<EventResponse> setCheckInEnabled(
+            @PathVariable UUID id, @RequestBody CheckInControlRequest request) {
+        return ResponseEntity.ok(eventCatalogService.setCheckInEnabled(id, request.enabled()));
+    }
 
     @PostMapping
     public ResponseEntity<EventResponse> createEvent(@Valid @RequestBody CreateEventRequest request) {

@@ -23,6 +23,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -44,7 +45,7 @@ class DynamicQrTicketingE2ETests {
     void testFullTicketingLifecycle() throws Exception {
         String adminToken = TestAdminSession.create(users, roles, sessions);
         Instant now = Instant.now();
-        Instant start = now.plus(10, ChronoUnit.DAYS);
+        Instant start = now.plus(1, ChronoUnit.HOURS);
         Instant end = start.plus(4, ChronoUnit.HOURS);
 
         // 1. Create Event
@@ -107,6 +108,17 @@ class DynamicQrTicketingE2ETests {
 
         JsonNode ticketNode = objectMapper.readTree(ticketResult.getResponse().getContentAsString());
         String ticketId = ticketNode.get("ticketId").asText();
+
+        mockMvc.perform(get("/api/v1/tickets/" + ticketId + "/dynamic-qr")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(put("/api/v1/events/" + eventId + "/check-in")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"enabled\":true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checkInEnabled").value(true));
 
         // 3b. List User Tickets (My Tickets)
         mockMvc.perform(get("/api/v1/tickets")

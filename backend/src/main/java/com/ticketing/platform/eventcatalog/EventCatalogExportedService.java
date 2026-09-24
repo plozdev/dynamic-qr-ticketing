@@ -16,6 +16,8 @@ public interface EventCatalogExportedService {
 
     EventSummaryDto getEventSummary(UUID eventId);
 
+    boolean isCheckInOpen(UUID eventId, Instant now);
+
     record EventSummaryDto(
             UUID eventId,
             String name,
@@ -24,7 +26,8 @@ public interface EventCatalogExportedService {
             Instant startDateTime,
             Instant endDateTime,
             int checkInWindowMinutes,
-            String bannerUrl
+            String bannerUrl,
+            boolean checkInEnabled
     ) {
         public EventSummaryDto(
                 UUID eventId,
@@ -32,7 +35,7 @@ public interface EventCatalogExportedService {
                 String venueName,
                 String status
         ) {
-            this(eventId, name, venueName, status, Instant.now(), Instant.now().plusSeconds(14400), 120, null);
+            this(eventId, name, venueName, status, Instant.now(), Instant.now().plusSeconds(14400), 120, null, false);
         }
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.Map;
 import java.util.UUID;
@@ -23,6 +24,33 @@ class AuthIntegrationTests {
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
     @Autowired RoleAssignmentService roles;
+
+    @Test
+    void ticketStreamRequiresOwnerAndAllowsAsyncCompletion() throws Exception {
+        String username = "stream_" + UUID.randomUUID().toString().substring(0, 8);
+        JsonNode user = json.readTree(mvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of(
+                                "username", username,
+                                "email", username + "@example.com",
+                                "password", "strong-password-123",
+                                "displayName", "Stream User"))))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString());
+
+        mvc.perform(get("/api/v1/tickets/stream"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/tickets/stream")
+                        .header("Authorization", "Bearer " + user.get("token").asText())
+                        .param("userId", UUID.randomUUID().toString()))
+                .andExpect(status().isForbidden());
+
+        MvcResult stream = mvc.perform(get("/api/v1/tickets/stream")
+                        .header("Authorization", "Bearer " + user.get("token").asText()))
+                .andExpect(status().isOk())
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        stream.getRequest().getAsyncContext().complete();
+    }
 
     @Test
     void signupLoginAndRejectSpoofedIdentity() throws Exception {
@@ -47,7 +75,7 @@ class AuthIntegrationTests {
                         .header("Authorization", "Bearer " + created.get("token").asText())
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden());
-        roles.grant(UUID.fromString(created.get("userId").asText()), "ADMIN");
+        roles.assign(UUID.fromString(created.get("userId").asText()), "ADMIN");
 
         mvc.perform(post("/api/v1/auth/signup").contentType(MediaType.APPLICATION_JSON).content(signup))
                 .andExpect(status().isBadRequest());
@@ -65,6 +93,7 @@ class AuthIntegrationTests {
         JsonNode loggedIn = json.readTree(mvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(login))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.roles[0]").value("ADMIN"))
+                .andExpect(jsonPath("$.roles.length()").value(1))
                 .andReturn().getResponse().getContentAsString());
         String token = loggedIn.get("token").asText();
         mvc.perform(get("/api/v1/admin/users").header("Authorization", "Bearer " + token))

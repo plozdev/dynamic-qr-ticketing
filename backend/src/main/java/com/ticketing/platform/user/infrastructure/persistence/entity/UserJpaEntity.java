@@ -4,8 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,8 +14,6 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.util.UUID;
-import java.util.HashSet;
-import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -52,10 +49,7 @@ public class UserJpaEntity {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    @Builder.Default
-    @ManyToMany
-    @JoinTable(name = "user_roles",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id"))
-    private Set<RoleJpaEntity> roles = new HashSet<>();
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "role_id", nullable = false)
+    private RoleJpaEntity role;
 }

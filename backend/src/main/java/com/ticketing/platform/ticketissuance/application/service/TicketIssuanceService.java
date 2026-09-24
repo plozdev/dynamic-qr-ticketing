@@ -149,6 +149,10 @@ public class TicketIssuanceService implements IssueTicketUseCase, ClaimTicketUse
             throw new DomainException("Ticket is not active: " + ticket.getStatus());
         }
 
+        if (!eventCatalogService.isCheckInOpen(ticket.getEventId(), Instant.now())) {
+            throw new DomainException("Check-in is not open for this event");
+        }
+
         long now = Instant.now().getEpochSecond();
         int interval = qrCryptoPort.getValiditySeconds();
         long timeWindow = now / interval;
@@ -216,7 +220,7 @@ public class TicketIssuanceService implements IssueTicketUseCase, ClaimTicketUse
             int checkInWindowMinutes = eventSummary.checkInWindowMinutes();
             Instant checkInOpensAt = startDateTime.minus(Duration.ofMinutes(checkInWindowMinutes));
 
-            boolean isCheckInOpen = !now.isBefore(checkInOpensAt) && !now.isAfter(endDateTime);
+            boolean isCheckInOpen = eventCatalogService.isCheckInOpen(ticket.getEventId(), now);
 
             String status;
             String checkInNote;
@@ -235,7 +239,9 @@ public class TicketIssuanceService implements IssueTicketUseCase, ClaimTicketUse
                 checkInNote = "Sự kiện đã kết thúc";
             } else {
                 status = "NOT_YET_CHECK_IN";
-                checkInNote = "Cổng mở lúc " + timeFormatter.format(checkInOpensAt) + " (chưa thể check-in)";
+                checkInNote = !eventSummary.checkInEnabled()
+                        ? "Ban tổ chức chưa mở check-in"
+                        : "Cổng mở lúc " + timeFormatter.format(checkInOpensAt) + " (chưa thể check-in)";
             }
 
             return new UserTicketResponse(
@@ -265,6 +271,7 @@ public class TicketIssuanceService implements IssueTicketUseCase, ClaimTicketUse
         return ticketRepository.findById(TicketId.of(ticketId))
                 .map(ticket -> new TicketVerificationData(
                         ticket.getId().value(),
+                        ticket.getUserId(),
                         ticket.getEventId(),
                         ticket.getStatus().name(),
                         ticket.getSecret().base64Key(),

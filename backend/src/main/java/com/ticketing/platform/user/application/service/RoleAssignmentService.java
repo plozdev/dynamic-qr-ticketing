@@ -31,9 +31,9 @@ public class RoleAssignmentService {
     }
 
     @Transactional
-    public void grant(UUID userId, String roleName) {
+    public void assign(UUID userId, String roleName) {
         UserJpaEntity user = users.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
-        user.getRoles().add(resolve(roleName));
+        user.setRole(resolve(roleName));
     }
 }

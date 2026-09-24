@@ -39,7 +39,6 @@ spring:
   sql:
     init:
       mode: never
-      data-locations: classpath:db/data.sql
       encoding: UTF-8
 
   # Database Migration with Flyway

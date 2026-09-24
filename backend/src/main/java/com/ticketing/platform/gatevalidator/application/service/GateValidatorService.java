@@ -1,6 +1,6 @@
 package com.ticketing.platform.gatevalidator.application.service;
 
-import com.ticketing.platform.gatevalidator.TicketValidatedIntegrationEvent;
+import com.ticketing.platform.shared.event.TicketValidatedIntegrationEvent;
 import com.ticketing.platform.gatevalidator.application.dto.GateValidationResultDto;
 import com.ticketing.platform.gatevalidator.application.dto.ValidateGateCommand;
 import com.ticketing.platform.gatevalidator.application.port.in.ValidateTicketAtGateUseCase;
@@ -8,6 +8,7 @@ import com.ticketing.platform.gatevalidator.application.port.out.ReplayCheckPort
 import com.ticketing.platform.gatevalidator.domain.model.ValidationResult;
 import com.ticketing.platform.gatevalidator.domain.model.ValidationStatus;
 import com.ticketing.platform.gatevalidator.domain.repository.GateScanLogRepository;
+import com.ticketing.platform.eventcatalog.EventCatalogExportedService;
 import com.ticketing.platform.ticketissuance.TicketVerificationExportedService;
 import com.ticketing.platform.ticketissuance.TicketVerificationExportedService.TicketVerificationData;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
     private static final int ROTATION_INTERVAL_SECONDS = 30;
 
     private final TicketVerificationExportedService ticketVerificationService;
+    private final EventCatalogExportedService eventCatalogService;
     private final ReplayCheckPort replayCheckPort;
     private final GateScanLogRepository scanLogRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -105,6 +107,11 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
                     ValidationStatus.DENIED_REPLAY_ATTACK, "Phát hiện mã QR quét lại (Replay Attack), từ chối vào cổng");
         }
 
+        if (!eventCatalogService.isCheckInOpen(ticketData.eventId(), Instant.now())) {
+            return recordAndReturnDenied(ticketId, command.gateId(),
+                    ValidationStatus.DENIED_CHECK_IN_CLOSED, "Check-in chưa được mở cho sự kiện này");
+        }
+
         // 7. Kiểm tra trạng thái vé
         if ("USED".equalsIgnoreCase(ticketData.status())) {
             return recordAndReturnDenied(ticketId, command.gateId(),
@@ -126,9 +133,7 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
         scanLogRepository.recordScan(UUID.randomUUID(), ticketId, command.gateId(), ValidationResult.granted(ticketId));
 
         // 10. Phát sự kiện liên module (Spring Modulith Outbox)
-        eventPublisher.publishEvent(new TicketValidatedIntegrationEvent(
-                ticketId, command.gateId(), "GRANTED", "Access granted"
-        ));
+        eventPublisher.publishEvent(new TicketValidatedIntegrationEvent(ticketId, ticketData.userId(), command.gateId(), "GRANTED", "Access granted"));
 
         // 11. Trả về kết quả thành công
         return GateValidationResultDto.granted(ticketId, "Xác thực vé thành công, mời vào cổng");
@@ -171,4 +176,3 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
         return GateValidationResultDto.denied(ticketId, status.name(), message);
     }
 }
-

@@ -6,6 +6,7 @@ import com.ticketing.platform.eventcatalog.application.dto.EventResponse;
 import com.ticketing.platform.eventcatalog.application.port.in.CreateEventUseCase;
 import com.ticketing.platform.eventcatalog.application.port.in.GetEventQuery;
 import com.ticketing.platform.eventcatalog.EventPublishedIntegrationEvent;
+import com.ticketing.platform.eventcatalog.EventCheckInChangedIntegrationEvent;
 import com.ticketing.platform.eventcatalog.domain.repository.EventRepository;
 
 import com.ticketing.platform.eventcatalog.domain.model.Event;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.UUID;
+import java.time.Instant;
 
 /**
  * Khung sườn Application Service cho Event Catalog.
@@ -62,6 +64,26 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EntityNotFoundException("Event", eventId));
         return toResponse(event);
+    }
+
+    public EventResponse setCheckInEnabled(UUID eventId, boolean enabled) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event", eventId));
+        if (enabled && Instant.now().isAfter(event.getEndDateTime())) {
+            throw new DomainException("Cannot open check-in after event ends");
+        }
+        event.setCheckInEnabled(enabled);
+        eventRepository.save(event);
+        eventPublisher.publishEvent(new EventCheckInChangedIntegrationEvent(eventId, enabled, Instant.now()));
+        return toResponse(event);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isCheckInOpen(UUID eventId, Instant now) {
+        return eventRepository.findById(eventId)
+                .map(event -> event.isCheckInOpen(now))
+                .orElse(false);
     }
 
     @Override
@@ -120,7 +142,8 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
                 event.getStartDateTime(),
                 event.getEndDateTime(),
                 event.getCheckInWindowMinutes(),
-                event.getBannerUrl()
+                event.getBannerUrl(),
+                event.isCheckInEnabled()
         );
     }
 
@@ -140,7 +163,8 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
                 event.getAvailableTickets(),
                 event.getRemainingPercentage(),
                 event.isHotTrend(),
-                event.getCheckInWindowMinutes()
+                event.getCheckInWindowMinutes(),
+                event.isCheckInEnabled()
         );
     }
 }

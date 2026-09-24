@@ -3,7 +3,7 @@ package com.ticketing.platform.auditlog.application.listener;
 import com.ticketing.platform.auditlog.application.port.in.RecordAuditLogUseCase;
 import com.ticketing.platform.auditlog.domain.model.AuditEventType;
 import com.ticketing.platform.eventcatalog.EventPublishedIntegrationEvent;
-import com.ticketing.platform.gatevalidator.TicketValidatedIntegrationEvent;
+import com.ticketing.platform.shared.event.TicketValidatedIntegrationEvent;
 import com.ticketing.platform.ticketissuance.TicketIssuedIntegrationEvent;
 import org.springframework.modulith.events.ApplicationModuleListener;
 import org.springframework.stereotype.Component;
@@ -60,4 +60,3 @@ public class AuditLogEventListener {
         );
     }
 }
-

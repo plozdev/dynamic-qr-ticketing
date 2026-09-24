@@ -13,7 +13,7 @@ final class TestAdminSession {
         String suffix = UUID.randomUUID().toString().substring(0, 8);
         var user = users.register("admin_" + suffix, "admin-" + suffix + "@example.com",
                 "strong-password-123", "Test Admin");
-        roles.grant(user.id(), "ADMIN");
+        roles.assign(user.id(), "ADMIN");
         return sessions.create(user.id());
     }
 }

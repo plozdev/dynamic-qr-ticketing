@@ -1,6 +1,7 @@
 package com.ticketing.platform.shared.security;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -32,6 +33,9 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
                 .authorizeHttpRequests(auth -> auth
+                        // The initial SSE request is authenticated below. Servlet async redispatch
+                        // only completes that established response and has no SecurityContext.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         // Public endpoints
                         .requestMatchers("/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/**").permitAll()
                         .requestMatchers("/api/v1/auth/signup", "/api/v1/auth/login").permitAll()
@@ -39,6 +43,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
                                 "/api/v1/events/*/claim", "/api/v1/tickets/claim", "/api/v1/tickets/issue").denyAll()
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/events").hasRole("ADMIN")
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/v1/events/*/check-in").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/gates/*/validate").hasRole("ADMIN")
                         .requestMatchers("/api/v1/audit-logs/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/events/**").permitAll()

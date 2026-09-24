@@ -70,6 +70,7 @@ public class EventRepositoryAdapter implements EventRepository {
                     .availableTickets(event.getAvailableTickets())
                     .isHotTrend(event.isHotTrend())
                     .checkInWindowMinutes(event.getCheckInWindowMinutes())
+                    .checkInEnabled(event.isCheckInEnabled())
                     .build();
     }
 
@@ -78,7 +79,7 @@ public class EventRepositoryAdapter implements EventRepository {
         if (entity.getVenueName() != null || entity.getVenueAddress() != null) {
             venue = new Venue(null, entity.getVenueName(), entity.getVenueAddress(), Collections.emptyList());
         }
-        return new Event(
+        Event event = new Event(
                 entity.getId(),
                 entity.getName(),
                 entity.getDescription(),
@@ -95,5 +96,7 @@ public class EventRepositoryAdapter implements EventRepository {
                 entity.isHotTrend(),
                 entity.getCheckInWindowMinutes()
         );
+        event.setCheckInEnabled(entity.isCheckInEnabled());
+        return event;
     }
 }

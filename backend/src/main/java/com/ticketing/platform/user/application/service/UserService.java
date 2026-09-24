@@ -14,8 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.Set;
-import java.util.HashSet;
 
 @Service
 @RequiredArgsConstructor
@@ -45,7 +43,7 @@ public class UserService implements UserExportedService {
                 .displayName(displayName.trim())
                 .createdAt(now)
                 .updatedAt(now)
-                .roles(new HashSet<>(Set.of(roleAssignments.resolve("USER"))))
+                .role(roleAssignments.resolve("USER"))
                 .build();
         try {
             return toDto(userRepository.saveAndFlush(user));
@@ -83,6 +81,6 @@ public class UserService implements UserExportedService {
     private UserDto toDto(UserJpaEntity entity) {
         return new UserDto(entity.getId(), entity.getUsername(), entity.getEmail(),
                 entity.getDisplayName(), entity.getAvatarUrl(),
-                entity.getRoles().stream().map(role -> role.getName()).sorted().toList());
+                List.of(entity.getRole().getName()));
     }
 }

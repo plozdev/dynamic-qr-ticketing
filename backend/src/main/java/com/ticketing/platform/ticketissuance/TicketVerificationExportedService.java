@@ -17,6 +17,7 @@ public interface TicketVerificationExportedService {
 
     record TicketVerificationData(
             UUID ticketId,
+            UUID userId,
             UUID eventId,
             String status,
             String secretKey,

@@ -71,4 +71,7 @@ public class EventJpaEntity {
 
     @Column(name = "check_in_window_minutes", nullable = false)
     private int checkInWindowMinutes;
+
+    @Column(name = "check_in_enabled", nullable = false)
+    private boolean checkInEnabled;
 }

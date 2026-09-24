@@ -30,6 +30,7 @@ public class Event implements AggregateRoot<UUID> {
     private int availableTickets;
     private boolean isHotTrend;
     private int checkInWindowMinutes;
+    private boolean checkInEnabled;
 
     public Event(UUID id, String name, String description, Venue venue,
                  Instant startDateTime, Instant endDateTime, EventStatus status,
@@ -58,6 +59,17 @@ public class Event implements AggregateRoot<UUID> {
         this.availableTickets = availableTickets >= 0 ? availableTickets : 850;
         this.isHotTrend = isHotTrend;
         this.checkInWindowMinutes = checkInWindowMinutes > 0 ? checkInWindowMinutes : 120;
+    }
+
+    public void setCheckInEnabled(boolean enabled) {
+        if (enabled && status != EventStatus.PUBLISHED) {
+            throw new DomainException("Check-in requires a published event");
+        }
+        this.checkInEnabled = enabled;
+    }
+
+    public boolean isCheckInEnabled() {
+        return checkInEnabled;
     }
 
     public static Event create(String name, String description, Venue venue,
@@ -144,7 +156,8 @@ public class Event implements AggregateRoot<UUID> {
     }
 
     public boolean isCheckInOpen(Instant now) {
-        return !now.isBefore(getCheckInOpensAt()) && !now.isAfter(endDateTime);
+        return status == EventStatus.PUBLISHED && checkInEnabled
+                && !now.isAfter(endDateTime);
     }
 
     public void decrementAvailableTickets() {
