@@ -4,59 +4,62 @@ import com.ticketing.platform.user.UserExportedService;
 import com.ticketing.platform.user.infrastructure.persistence.entity.UserJpaEntity;
 import com.ticketing.platform.user.infrastructure.persistence.repository.SpringDataUserRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Set;
+import java.util.HashSet;
 
-@Slf4j
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class UserService implements UserExportedService {
 
     private final SpringDataUserRepository userRepository;
+    private final RoleAssignmentService roleAssignments;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
-    public UserDto getOrCreateUser(String firebaseUid, String email, String displayName, String avatarUrl) {
-        return userRepository.findByFirebaseUid(firebaseUid)
-                .map(existing -> {
-                    boolean modified = false;
-                    if (email != null && !email.equals(existing.getEmail())) {
-                        existing.setEmail(email);
-                        modified = true;
-                    }
-                    if (displayName != null && !displayName.equals(existing.getDisplayName())) {
-                        existing.setDisplayName(displayName);
-                        modified = true;
-                    }
-                    if (avatarUrl != null && !avatarUrl.equals(existing.getAvatarUrl())) {
-                        existing.setAvatarUrl(avatarUrl);
-                        modified = true;
-                    }
-                    if (modified) {
-                        existing.setUpdatedAt(Instant.now());
-                        userRepository.save(existing);
-                    }
-                    return toDto(existing);
-                })
-                .orElseGet(() -> {
-                    log.info("JIT Provisioning new user for Firebase UID: {}", firebaseUid);
-                    UserJpaEntity newUser = UserJpaEntity.builder()
-                            .id(UUID.randomUUID())
-                            .firebaseUid(firebaseUid)
-                            .email(email)
-                            .displayName(displayName != null ? displayName : (email != null ? email.split("@")[0] : "Khán Giả"))
-                            .avatarUrl(avatarUrl)
-                            .createdAt(Instant.now())
-                            .updatedAt(Instant.now())
-                            .build();
-                    UserJpaEntity saved = userRepository.save(newUser);
-                    return toDto(saved);
-                });
+    @Transactional
+    public UserDto register(String username, String email, String password, String displayName) {
+        String normalizedUsername = username.trim().toLowerCase(Locale.ROOT);
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        if (userRepository.existsByUsernameIgnoreCase(normalizedUsername)) {
+            throw new IllegalArgumentException("Username is already taken");
+        }
+        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
+            throw new IllegalArgumentException("Email is already registered");
+        }
+        Instant now = Instant.now();
+        UserJpaEntity user = UserJpaEntity.builder()
+                .id(UUID.randomUUID())
+                .username(normalizedUsername)
+                .email(normalizedEmail)
+                .passwordHash(passwordEncoder.encode(password))
+                .displayName(displayName.trim())
+                .createdAt(now)
+                .updatedAt(now)
+                .roles(new HashSet<>(Set.of(roleAssignments.resolve("USER"))))
+                .build();
+        try {
+            return toDto(userRepository.saveAndFlush(user));
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalArgumentException("Username or email is already registered", ex);
+        }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<UserDto> authenticate(String username, String password) {
+        return userRepository.findByUsernameIgnoreCase(username.trim())
+                .filter(user -> user.getPasswordHash() != null && passwordEncoder.matches(password, user.getPasswordHash()))
+                .map(this::toDto);
     }
 
     @Override
@@ -67,17 +70,19 @@ public class UserService implements UserExportedService {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<UserDto> findByFirebaseUid(String firebaseUid) {
-        return userRepository.findByFirebaseUid(firebaseUid).map(this::toDto);
+    public Optional<UserDto> findByUsername(String username) {
+        return userRepository.findByUsername(username).map(this::toDto);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserDto> getAllUsers() {
+        return userRepository.findAll().stream().map(this::toDto).toList();
     }
 
     private UserDto toDto(UserJpaEntity entity) {
-        return new UserDto(
-                entity.getId(),
-                entity.getFirebaseUid(),
-                entity.getEmail(),
-                entity.getDisplayName(),
-                entity.getAvatarUrl()
-        );
+        return new UserDto(entity.getId(), entity.getUsername(), entity.getEmail(),
+                entity.getDisplayName(), entity.getAvatarUrl(),
+                entity.getRoles().stream().map(role -> role.getName()).sorted().toList());
     }
 }

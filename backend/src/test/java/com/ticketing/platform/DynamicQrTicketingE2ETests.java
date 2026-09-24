@@ -2,6 +2,9 @@ package com.ticketing.platform;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ticketing.platform.shared.security.AuthSessionService;
+import com.ticketing.platform.user.UserExportedService;
+import com.ticketing.platform.user.application.service.RoleAssignmentService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,9 +35,14 @@ class DynamicQrTicketingE2ETests {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired private UserExportedService users;
+    @Autowired private RoleAssignmentService roles;
+    @Autowired private AuthSessionService sessions;
+
     @Test
     @DisplayName("E2E Test: Full Ticketing Lifecycle - Event Creation -> Issuance -> Mobile Sync -> Web QR -> Gate Validation -> Anti-Replay -> Audit Log")
     void testFullTicketingLifecycle() throws Exception {
+        String adminToken = TestAdminSession.create(users, roles, sessions);
         Instant now = Instant.now();
         Instant start = now.plus(10, ChronoUnit.DAYS);
         Instant end = start.plus(4, ChronoUnit.HOURS);
@@ -51,6 +59,7 @@ class DynamicQrTicketingE2ETests {
         );
 
         MvcResult eventResult = mockMvc.perform(post("/api/v1/events")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(eventReq)))
                 .andExpect(status().isCreated())
@@ -72,7 +81,15 @@ class DynamicQrTicketingE2ETests {
                 .andExpect(jsonPath("$[?(@.id == '" + eventId + "')].name").value("Grand Symphony Live"));
 
         // 3. Issue Ticket
-        UUID userId = UUID.randomUUID();
+        MvcResult signup = mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("username", "e2e_" + UUID.randomUUID().toString().substring(0, 8),
+                                "email", "e2e-" + UUID.randomUUID() + "@example.com",
+                                "password", "strong-password-123", "displayName", "VIP Fan"))))
+                .andExpect(status().isCreated()).andReturn();
+        JsonNode signedUp = objectMapper.readTree(signup.getResponse().getContentAsString());
+        UUID userId = UUID.fromString(signedUp.get("userId").asText());
+        String token = signedUp.get("token").asText();
         Map<String, Object> ticketReq = Map.of(
                 "eventId", eventId,
                 "userId", userId.toString(),
@@ -80,7 +97,8 @@ class DynamicQrTicketingE2ETests {
                 "attendeeEmail", "vip_fan@music.com"
         );
 
-        MvcResult ticketResult = mockMvc.perform(post("/api/v1/tickets/issue")
+        MvcResult ticketResult = mockMvc.perform(post("/api/v1/admin/tickets")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(ticketReq)))
                 .andExpect(status().isCreated())
@@ -92,7 +110,7 @@ class DynamicQrTicketingE2ETests {
 
         // 3b. List User Tickets (My Tickets)
         mockMvc.perform(get("/api/v1/tickets")
-                        .header("X-User-Id", userId.toString()))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].ticketId").value(ticketId))
@@ -103,14 +121,14 @@ class DynamicQrTicketingE2ETests {
 
         // 4. Mobile Key Sync (Provisioning)
         mockMvc.perform(get("/api/v1/tickets/" + ticketId + "/sync")
-                        .header("X-User-Id", userId.toString()))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.secretKeyBase64").isNotEmpty())
                 .andExpect(jsonPath("$.serverTimeEpochSeconds").isNumber());
 
         // 5. Web Dynamic QR
         MvcResult qrResult = mockMvc.perform(get("/api/v1/tickets/" + ticketId + "/dynamic-qr")
-                        .header("X-User-Id", userId.toString()))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.dynamicPayload", startsWith("TICKETING:" + ticketId + ":")))
                 .andReturn();
@@ -118,8 +136,28 @@ class DynamicQrTicketingE2ETests {
         JsonNode qrNode = objectMapper.readTree(qrResult.getResponse().getContentAsString());
         String dynamicPayload = qrNode.get("dynamicPayload").asText();
 
+        // A plausible-looking QR for the same ticket must never be accepted without the real HMAC.
+        String[] qrParts = dynamicPayload.split(":");
+        String forgedPayload = qrParts[0] + ":" + qrParts[1] + ":" + qrParts[2] + ":invalid-signature";
+        mockMvc.perform(post("/api/v1/gates/GATE_A/validate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("rawQrPayload", forgedPayload))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false));
+
+        // A copied genuine token on a different ticket ID must not poison the replay cache.
+        String poisonedPayload = qrParts[0] + ":" + UUID.randomUUID() + ":" + qrParts[2] + ":" + qrParts[3];
+        mockMvc.perform(post("/api/v1/gates/GATE_A/validate")
+                        .header("Authorization", "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("rawQrPayload", poisonedPayload))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false));
+
         // 6. Gate Validation (First Scan - GRANTED)
         mockMvc.perform(post("/api/v1/gates/GATE_A/validate")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("rawQrPayload", dynamicPayload))))
                 .andExpect(status().isOk())
@@ -128,6 +166,7 @@ class DynamicQrTicketingE2ETests {
 
         // 7. Anti-Replay Check (Second Scan of same token - 403 FORBIDDEN)
         mockMvc.perform(post("/api/v1/gates/GATE_A/validate")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("rawQrPayload", dynamicPayload))))
                 .andExpect(status().isForbidden())
@@ -140,6 +179,8 @@ class DynamicQrTicketingE2ETests {
 
         // 9. Audit Logs
         mockMvc.perform(get("/api/v1/audit-logs"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/audit-logs").header("Authorization", "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(greaterThanOrEqualTo(3))));
     }
@@ -147,6 +188,7 @@ class DynamicQrTicketingE2ETests {
     @Test
     @DisplayName("Validation Test: Invalid Date Range and Non-existent Resources")
     void testValidationFailures() throws Exception {
+        String adminToken = TestAdminSession.create(users, roles, sessions);
         Instant now = Instant.now();
 
         // Start after End Date -> 400
@@ -157,6 +199,7 @@ class DynamicQrTicketingE2ETests {
                 "endDateTime", now.plus(2, ChronoUnit.DAYS).toString()
         );
         mockMvc.perform(post("/api/v1/events")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDates)))
                 .andExpect(status().isBadRequest());
@@ -169,11 +212,13 @@ class DynamicQrTicketingE2ETests {
     @Test
     @DisplayName("Security Test: Expired QR Code Rejection")
     void testExpiredQrRejection() throws Exception {
+        String adminToken = TestAdminSession.create(users, roles, sessions);
         UUID fakeTicketId = UUID.randomUUID();
         long expiredTime = Instant.now().minus(60, ChronoUnit.SECONDS).getEpochSecond();
         String expiredPayload = "TICKETING:" + fakeTicketId + ":" + expiredTime + ":dummyToken";
 
         mockMvc.perform(post("/api/v1/gates/GATE_A/validate")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("rawQrPayload", expiredPayload))))
                 .andExpect(status().isForbidden())

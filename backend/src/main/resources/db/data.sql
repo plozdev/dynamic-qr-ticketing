@@ -4,10 +4,10 @@
 -- =====================================================================
 
 -- 0. TÀI KHOẢN NGƯỜI DÙNG MẪU (USERS)
-INSERT INTO users (id, firebase_uid, email, display_name, avatar_url, created_at, updated_at)
+INSERT INTO users (id, username, email, display_name, avatar_url, created_at, updated_at)
 VALUES (
     '11111111-2222-3333-4444-555555555555',
-    'demo-firebase-uid-11111111',
+    'demo-legacy-11111111',
     'hoanglong@dynamic-qr.vn',
     'Nguyễn Hoàng Long',
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
@@ -140,114 +140,4 @@ INSERT INTO events (
     3200,
     TRUE,
     120
-);
-
--- 2. DANH SÁCH VÉ CỦA NGƯỜI DÙNG DEMO (userId: 11111111-2222-3333-4444-555555555555)
-INSERT INTO tickets (
-    id, event_id, user_id, category_name, secret_key, status, issued_at, used_at, used_at_gate_id, seat_number, attendee_name, gate_info
-) VALUES
-(
-    -- Vé 1: Hà Nội Rock Fest -> check-in opens 120m before start (start in 1 hour) -> READY_TO_CHECK_IN
-    'a1111111-0000-0000-0000-000000000001',
-    'e1111111-1111-1111-1111-111111111111',
-    '11111111-2222-3333-4444-555555555555',
-    'VIP Diamond',
-    '47c9f87cb5e23631f24d1a6e9a7e02e86d0b674b3e813739a8c62b92ef51bcf6',
-    'ACTIVE',
-    NOW() - INTERVAL '1 day',
-    NULL,
-    NULL,
-    'VIP-A12',
-    'Nguyễn Hoàng Long',
-    'CỔNG A1'
-),
-(
-    -- Vé 2: Monsoon EDM -> start in 3 days -> NOT_YET_CHECK_IN
-    'a2222222-0000-0000-0000-000000000002',
-    'e2222222-2222-2222-2222-222222222222',
-    '11111111-2222-3333-4444-555555555555',
-    'Fanzone Standard',
-    '81b9d45e7f12a34bc09ef4812398a1273948bf9123847acb123894719283741a',
-    'ACTIVE',
-    NOW() - INTERVAL '2 days',
-    NULL,
-    NULL,
-    'ZONE-FANZ-08',
-    'Nguyễn Hoàng Long',
-    'CỔNG B2'
-),
-(
-    -- Vé 3: Chung Kết Cúp Quốc Gia -> đã qua cổng check-in -> CHECKED_IN
-    'a3333333-0000-0000-0000-000000000003',
-    'e3333333-3333-3333-3333-333333333333',
-    '11111111-2222-3333-4444-555555555555',
-    'Khán Đài A',
-    '1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-    'USED',
-    NOW() - INTERVAL '10 days',
-    NOW() - INTERVAL '10 days' + INTERVAL '30 minutes',
-    'CỔNG CHÍNH',
-    'STAND-A-45',
-    'Nguyễn Hoàng Long',
-    'CỔNG CHÍNH'
-),
-(
-    -- Vé 4: Anh Trai "Say Hi" -> start in 10 days -> NOT_YET_CHECK_IN
-    'a4444444-0000-0000-0000-000000000004',
-    'e4444444-4444-4444-4444-444444444444',
-    '11111111-2222-3333-4444-555555555555',
-    'SVIP Vạn Phúc',
-    'a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8',
-    'ACTIVE',
-    NOW() - INTERVAL '3 days',
-    NULL,
-    NULL,
-    'SVIP-01',
-    'Nguyễn Hoàng Long',
-    'CỔNG VIP-1'
-),
-(
-    -- Vé 5: Vở Nhạc Kịch Những Người Khốn Khổ
-    'a5555555-0000-0000-0000-000000000005',
-    'e5555555-5555-5555-5555-555555555555',
-    '11111111-2222-3333-4444-555555555555',
-    'Hạng Nhất - Tầng 1',
-    'b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2',
-    'ACTIVE',
-    NOW() - INTERVAL '4 days',
-    NULL,
-    NULL,
-    'A-15',
-    'Nguyễn Hoàng Long',
-    'CỔNG CHÍNH'
-),
-(
-    -- Vé 6: Triển Lãm Nghệ Thuật Số Đa Giác Quang Tỏa
-    'a6666666-0000-0000-0000-000000000006',
-    'e6666666-6666-6666-6666-666666666666',
-    '11111111-2222-3333-4444-555555555555',
-    'Vé Tiêu Chuẩn',
-    'c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3',
-    'ACTIVE',
-    NOW() - INTERVAL '5 days',
-    NULL,
-    NULL,
-    'TỰ DO',
-    'Nguyễn Hoàng Long',
-    'CỔNG VÀO'
-),
-(
-    -- Vé 7: Giải Marathon Midnight 2026
-    'a7777777-0000-0000-0000-000000000007',
-    'e7777777-7777-7777-7777-777777777777',
-    '11111111-2222-3333-4444-555555555555',
-    'BIB 21KM',
-    'd3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4',
-    'ACTIVE',
-    NOW() - INTERVAL '6 days',
-    NULL,
-    NULL,
-    'BIB-21045',
-    'Nguyễn Hoàng Long',
-    'CỔNG XUẤT PHÁT'
 );

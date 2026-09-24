@@ -2,6 +2,9 @@ package com.ticketing.platform;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ticketing.platform.shared.security.AuthSessionService;
+import com.ticketing.platform.user.UserExportedService;
+import com.ticketing.platform.user.application.service.RoleAssignmentService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,9 +35,14 @@ class TicketClaimingIntegrationTests {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired private UserExportedService users;
+    @Autowired private RoleAssignmentService roles;
+    @Autowired private AuthSessionService sessions;
+
     @Test
     @DisplayName("Claim Ticket Test: 1-Click Ticket Claiming decreases available tickets and issues valid ticket")
     void test1ClickTicketClaiming() throws Exception {
+        String adminToken = TestAdminSession.create(users, roles, sessions);
         Instant now = Instant.now();
         Instant start = now.plus(7, ChronoUnit.DAYS);
         Instant end = start.plus(4, ChronoUnit.HOURS);
@@ -51,6 +59,7 @@ class TicketClaimingIntegrationTests {
         );
 
         MvcResult eventResult = mockMvc.perform(post("/api/v1/events")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(eventReq)))
                 .andExpect(status().isCreated())
@@ -61,14 +70,35 @@ class TicketClaimingIntegrationTests {
         int initialAvailable = eventNode.get("availableTickets").asInt();
 
         // 2. User claims ticket via 1-Click API: POST /api/v1/events/{eventId}/claim
-        UUID claimerUserId = UUID.randomUUID();
+        String email = "claimer-" + UUID.randomUUID() + "@example.com";
+        MvcResult signup = mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "username", "claimer_" + UUID.randomUUID().toString().substring(0, 8),
+                                "email", email, "password", "strong-password-123", "displayName", "Phan Thanh Son"))))
+                .andExpect(status().isCreated()).andReturn();
+        JsonNode account = objectMapper.readTree(signup.getResponse().getContentAsString());
+        String token = account.get("token").asText();
         Map<String, Object> claimReq = Map.of(
+                "eventId", eventId,
+                "userId", account.get("userId").asText(),
                 "categoryName", "VIP Diamond",
                 "attendeeName", "Phan Thanh Sơn"
         );
 
-        MvcResult claimResult = mockMvc.perform(post("/api/v1/events/" + eventId + "/claim")
-                        .header("X-User-Id", claimerUserId.toString())
+        mockMvc.perform(post("/api/v1/events/" + eventId + "/claim")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/admin/tickets")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(claimReq)))
+                .andExpect(status().isForbidden());
+
+        MvcResult claimResult = mockMvc.perform(post("/api/v1/admin/tickets")
+                        .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(claimReq)))
                 .andExpect(status().isCreated())
@@ -92,7 +122,7 @@ class TicketClaimingIntegrationTests {
 
         // 4. Verify user can list their newly claimed ticket
         mockMvc.perform(get("/api/v1/tickets")
-                        .header("X-User-Id", claimerUserId.toString()))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].ticketId").value(ticketId))
@@ -101,7 +131,7 @@ class TicketClaimingIntegrationTests {
 
         // 5. Verify user can sync their key for mobile offline QR generation
         mockMvc.perform(get("/api/v1/tickets/" + ticketId + "/sync")
-                        .header("X-User-Id", claimerUserId.toString()))
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.secretKeyBase64").isNotEmpty());
     }

@@ -5,16 +5,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 public final class SecurityUtils {
 
-    public static final UUID DEFAULT_DEMO_USER_ID = UUID.fromString("11111111-2222-3333-4444-555555555555");
-
     private SecurityUtils() {}
 
-    public static Optional<FirebaseUserPrincipal> getCurrentPrincipal() {
+    public static Optional<UserPrincipal> getCurrentPrincipal() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof FirebaseUserPrincipal principal) {
+        if (auth != null && auth.getPrincipal() instanceof UserPrincipal principal) {
             return Optional.of(principal);
         }
         return Optional.empty();
@@ -22,14 +22,8 @@ public final class SecurityUtils {
 
     public static UUID getCurrentUserId() {
         return getCurrentPrincipal()
-                .map(FirebaseUserPrincipal::userId)
-                .orElse(DEFAULT_DEMO_USER_ID);
+                .map(UserPrincipal::userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
     }
 
-    public static UUID getEffectiveUserId(UUID explicitHeaderOrParam) {
-        if (explicitHeaderOrParam != null) {
-            return explicitHeaderOrParam;
-        }
-        return getCurrentUserId();
-    }
 }

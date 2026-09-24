@@ -10,7 +10,6 @@ public record IssueTicketRequest(
         @NotNull(message = "Event ID is required")
         UUID eventId,
 
-        @NotNull(message = "User ID is required")
         UUID userId,
 
         @NotBlank(message = "Ticket category is required")

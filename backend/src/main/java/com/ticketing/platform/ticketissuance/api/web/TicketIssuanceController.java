@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,34 +49,27 @@ public class TicketIssuanceController {
     private final GetTicketDetailsUseCase getTicketDetailsUseCase;
 
     @GetMapping
-    public ResponseEntity<List<UserTicketResponse>> getMyTickets(
-            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
-            @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
+    public ResponseEntity<List<UserTicketResponse>> getMyTickets() {
+        UUID effectiveUserId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(getUserTicketsUseCase.getUserTickets(effectiveUserId));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<TicketDetailsResponse> getTicketDetails(
-            @PathVariable UUID id,
-            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
-            @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
+    public ResponseEntity<TicketDetailsResponse> getTicketDetails(@PathVariable UUID id) {
+        UUID effectiveUserId = SecurityUtils.getCurrentUserId();
         return ResponseEntity.ok(getTicketDetailsUseCase.getTicketDetails(id, effectiveUserId));
     }
 
     @PostMapping("/issue")
     public ResponseEntity<Map<String, Object>> issueTicket(@Valid @RequestBody IssueTicketRequest request) {
-        UUID ticketId = issueTicketUseCase.issueTicket(request.toCommand());
+        UUID ticketId = issueTicketUseCase.issueTicket(new com.ticketing.platform.ticketissuance.application.dto.IssueTicketCommand(
+                request.eventId(), SecurityUtils.getCurrentUserId(), request.categoryName()));
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("ticketId", ticketId));
     }
 
     @GetMapping("/{id}/dynamic-qr")
-    public ResponseEntity<DynamicQrResponse> getDynamicQr(
-            @PathVariable UUID id,
-            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
-            @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
+    public ResponseEntity<DynamicQrResponse> getDynamicQr(@PathVariable UUID id) {
+        UUID effectiveUserId = SecurityUtils.getCurrentUserId();
         DynamicQrDto dto = generateDynamicQrUseCase.generateDynamicQr(id, effectiveUserId);
         return ResponseEntity.ok(new DynamicQrResponse(
                 dto.ticketId(),
@@ -88,11 +80,8 @@ public class TicketIssuanceController {
     }
 
     @GetMapping("/{id}/sync")
-    public ResponseEntity<TicketSyncResponse> syncTicket(
-            @PathVariable UUID id,
-            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
-            @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
+    public ResponseEntity<TicketSyncResponse> syncTicket(@PathVariable UUID id) {
+        UUID effectiveUserId = SecurityUtils.getCurrentUserId();
         TicketSyncDto dto = syncTicketUseCase.syncTicket(id, effectiveUserId);
         return ResponseEntity.ok(new TicketSyncResponse(
                 dto.ticketId(),
@@ -106,10 +95,8 @@ public class TicketIssuanceController {
     @PostMapping("/claim")
     public ResponseEntity<ClaimTicketResponse> claimTicket(
             @RequestParam UUID eventId,
-            @RequestBody(required = false) ClaimTicketRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
-            @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
+            @RequestBody(required = false) ClaimTicketRequest request) {
+        UUID effectiveUserId = SecurityUtils.getCurrentUserId();
         ClaimTicketRequest effectiveRequest = request != null ? request : new ClaimTicketRequest(null, null, null);
         ClaimTicketResponse response = claimTicketUseCase.claimTicket(effectiveRequest.toCommand(eventId, effectiveUserId));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

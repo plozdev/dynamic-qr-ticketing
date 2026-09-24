@@ -75,14 +75,15 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
             return recordAndReturnDenied(ticketId, command.gateId(),
                     ValidationStatus.DENIED_EXPIRED_QR, "Mã QR đã hết hạn, vui lòng làm mới trên ứng dụng");
         }
-
-        // 4. Kiểm tra chống quét lại (Anti-Replay Attack)
-        if (replayCheckPort.markIfSeen(token, Duration.ofSeconds(60))) {
+        // The timestamp must be the end of the current (or one clock-drift) window.
+        // Reject arbitrary future timestamps even if a client knows a ticket's secret.
+        if (expiresAt % ROTATION_INTERVAL_SECONDS != 0
+                || expiresAt > ((now / ROTATION_INTERVAL_SECONDS) + 2) * ROTATION_INTERVAL_SECONDS) {
             return recordAndReturnDenied(ticketId, command.gateId(),
-                    ValidationStatus.DENIED_REPLAY_ATTACK, "Phát hiện mã QR quét lại (Replay Attack), từ chối vào cổng");
+                    ValidationStatus.DENIED_INVALID_SIGNATURE, "Thời hạn mã QR không hợp lệ");
         }
 
-        // 5. Tra cứu thông tin vé qua Boundary SPI
+        // 4. Tra cứu thông tin vé qua Boundary SPI
         Optional<TicketVerificationData> ticketOpt = ticketVerificationService.getTicketForValidation(ticketId);
         if (ticketOpt.isEmpty()) {
             return recordAndReturnDenied(ticketId, command.gateId(),
@@ -91,7 +92,20 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
 
         TicketVerificationData ticketData = ticketOpt.get();
 
-        // 6. Kiểm tra trạng thái vé
+        // 6. Xác thực chữ ký mật mã HMAC-SHA256
+        if (!verifyHmacToken(ticketId, ticketData.secretKey(), expiresAt, token)) {
+            return recordAndReturnDenied(ticketId, command.gateId(),
+                    ValidationStatus.DENIED_INVALID_SIGNATURE, "Chữ ký mật mã của mã QR không hợp lệ");
+        }
+
+        // Only authenticated tokens can enter the replay cache. Otherwise an attacker
+        // could poison it with a copied token attached to a forged ticket ID.
+        if (replayCheckPort.markIfSeen(token, Duration.ofSeconds(60))) {
+            return recordAndReturnDenied(ticketId, command.gateId(),
+                    ValidationStatus.DENIED_REPLAY_ATTACK, "Phát hiện mã QR quét lại (Replay Attack), từ chối vào cổng");
+        }
+
+        // 7. Kiểm tra trạng thái vé
         if ("USED".equalsIgnoreCase(ticketData.status())) {
             return recordAndReturnDenied(ticketId, command.gateId(),
                     ValidationStatus.DENIED_ALREADY_USED, "Vé đã được sử dụng qua cổng trước đó");
@@ -103,12 +117,6 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
         if (!"ACTIVE".equalsIgnoreCase(ticketData.status())) {
             return recordAndReturnDenied(ticketId, command.gateId(),
                     ValidationStatus.DENIED_ALREADY_USED, "Vé không ở trạng thái hợp lệ: " + ticketData.status());
-        }
-
-        // 7. Xác thực chữ ký mật mã HMAC-SHA256
-        if (!verifyHmacToken(ticketId, ticketData.secretKey(), expiresAt, token)) {
-            return recordAndReturnDenied(ticketId, command.gateId(),
-                    ValidationStatus.DENIED_INVALID_SIGNATURE, "Chữ ký mật mã của mã QR không hợp lệ");
         }
 
         // 8. Đánh dấu vé đã qua cổng
@@ -128,6 +136,9 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
 
     private boolean verifyHmacToken(UUID ticketId, String secretBase64Key, long expiresAt, String token) {
         try {
+            if (token.length() != 43 || !token.matches("[A-Za-z0-9_-]+")) {
+                return false;
+            }
             long expectedTimeWindow = (expiresAt / ROTATION_INTERVAL_SECONDS) - 1;
             byte[] keyBytes = Base64.getUrlDecoder().decode(secretBase64Key);
             byte[] actualTokenBytes = Base64.getUrlDecoder().decode(token);
@@ -147,7 +158,7 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
             byte[] prevHmac = mac.doFinal(prevMessage.getBytes(StandardCharsets.UTF_8));
             return MessageDigest.isEqual(prevHmac, actualTokenBytes);
         } catch (Exception e) {
-            log.warn("HMAC verification failed for ticket {}", ticketId, e);
+            log.debug("HMAC verification failed for ticket {}: {}", ticketId, e.toString());
             return false;
         }
     }

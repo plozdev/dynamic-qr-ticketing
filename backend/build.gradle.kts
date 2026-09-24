@@ -40,8 +40,6 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
-    // Firebase
-    implementation("com.google.firebase:firebase-admin:9.4.0")
 
     // Spring Modulith
     implementation("org.springframework.modulith:spring-modulith-starter-core")

@@ -10,9 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -31,10 +29,8 @@ public class EventTicketClaimController {
     @PostMapping("/{eventId}/claim")
     public ResponseEntity<ClaimTicketResponse> claimTicketFromEvent(
             @PathVariable UUID eventId,
-            @RequestBody(required = false) ClaimTicketRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) UUID userIdHeader,
-            @RequestParam(value = "userId", required = false) UUID userIdParam) {
-        UUID effectiveUserId = SecurityUtils.getEffectiveUserId(userIdHeader != null ? userIdHeader : userIdParam);
+            @RequestBody(required = false) ClaimTicketRequest request) {
+        UUID effectiveUserId = SecurityUtils.getCurrentUserId();
         ClaimTicketRequest effectiveRequest = request != null ? request : new ClaimTicketRequest(null, null, null);
         ClaimTicketResponse response = claimTicketUseCase.claimTicket(effectiveRequest.toCommand(eventId, effectiveUserId));
         return ResponseEntity.status(HttpStatus.CREATED).body(response);

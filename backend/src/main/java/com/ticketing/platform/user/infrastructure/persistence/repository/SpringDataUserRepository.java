@@ -10,7 +10,13 @@ import java.util.UUID;
 @Repository
 public interface SpringDataUserRepository extends JpaRepository<UserJpaEntity, UUID> {
 
-    Optional<UserJpaEntity> findByFirebaseUid(String firebaseUid);
+    Optional<UserJpaEntity> findByUsername(String username);
+
+    Optional<UserJpaEntity> findByUsernameIgnoreCase(String username);
+
+    boolean existsByUsernameIgnoreCase(String username);
 
     Optional<UserJpaEntity> findByEmail(String email);
+
+    boolean existsByEmailIgnoreCase(String email);
 }

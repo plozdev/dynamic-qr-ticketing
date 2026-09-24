@@ -3,6 +3,9 @@ package com.ticketing.platform.user.infrastructure.persistence.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,6 +15,8 @@ import lombok.Setter;
 
 import java.time.Instant;
 import java.util.UUID;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -26,11 +31,14 @@ public class UserJpaEntity {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @Column(name = "firebase_uid", nullable = false, unique = true, length = 128)
-    private String firebaseUid;
+    @Column(name = "username", nullable = false, unique = true, length = 128)
+    private String username;
 
-    @Column(name = "email", length = 255)
+    @Column(name = "email", unique = true, length = 255)
     private String email;
+
+    @Column(name = "password_hash", length = 100)
+    private String passwordHash;
 
     @Column(name = "display_name", length = 255)
     private String displayName;
@@ -43,4 +51,11 @@ public class UserJpaEntity {
 
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    @Builder.Default
+    @ManyToMany
+    @JoinTable(name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    private Set<RoleJpaEntity> roles = new HashSet<>();
 }
