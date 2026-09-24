@@ -66,11 +66,11 @@ export interface GateValidateResponse {
 
 export interface UserAccount {
   id: string;
+  username?: string;
   name: string;
   email: string;
   phone?: string;
   role: 'USER' | 'ADMIN';
-  isDemoAppUser?: boolean;
   createdAt: string;
 }
 

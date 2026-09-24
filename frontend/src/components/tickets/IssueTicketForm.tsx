@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { Event, UserAccount } from '../../types';
 import { claimTicket, getApiErrorMessage } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
@@ -10,9 +10,6 @@ import {
   Armchair, 
   Award, 
   CheckCircle2, 
-  Smartphone, 
-  ChevronDown, 
-  ChevronUp 
 } from 'lucide-react';
 
 interface IssueTicketFormProps {
@@ -49,33 +46,10 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
   const [attendeeName, setAttendeeName] = useState('');
   const [seatNumber, setSeatNumber] = useState('A-01');
 
-  // Toggle manual UUID entry (hidden by default)
-  const [showManualUuid, setShowManualUuid] = useState(false);
-
   // Find currently selected user object
   const selectedUser = availableUsers.find((u) => u.id === userId);
 
-  // Default to first user if available
-  useEffect(() => {
-    if (availableUsers.length > 0) {
-      if (!userId || !availableUsers.some((u) => u.id === userId)) {
-        setUserId(availableUsers[0].id);
-        setAttendeeName(availableUsers[0].name);
-      } else if (!attendeeName) {
-        const found = availableUsers.find((u) => u.id === userId);
-        if (found) {
-          setAttendeeName(found.name);
-        }
-      }
-    }
-  }, [availableUsers, userId, attendeeName, setUserId]);
-
-  // Default to first event if not selected
-  useEffect(() => {
-    if (!selectedEventId && events.length > 0) {
-      setSelectedEventId(events[0].id);
-    }
-  }, [events, selectedEventId, setSelectedEventId]);
+  const effectiveAttendeeName = attendeeName || selectedUser?.name || '';
 
   // When selectedUser changes, keep attendeeName synchronized with user name
   const handleSelectUser = (selectedId: string) => {
@@ -93,27 +67,27 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
       toastError('Chưa chọn sự kiện', 'Vui lòng chọn sự kiện cần cấp vé!');
       return;
     }
-    if (!userId.trim()) {
+    if (!selectedUser) {
       toastError('Thiếu thông tin người nhận', 'Vui lòng chọn người nhận vé từ danh sách!');
       return;
     }
 
     try {
       setSubmitting(true);
-      await claimTicket(selectedEventId, userId.trim(), {
+      await claimTicket(selectedEventId, selectedUser.id, {
         categoryName,
         seatNumber: seatNumber.trim(),
-        attendeeName: attendeeName.trim(),
+        attendeeName: effectiveAttendeeName.trim(),
       });
 
       const selectedEvent = events.find((ev) => ev.id === selectedEventId);
       success(
         'Cấp vé thành công!',
-        `Đã cấp vé ${categoryName} (${seatNumber}) cho ${attendeeName} tại sự kiện "${selectedEvent?.name || ''}"`
+        `Đã cấp vé ${categoryName} (${seatNumber}) cho ${effectiveAttendeeName} tại sự kiện "${selectedEvent?.name || ''}"`
       );
 
       // Auto refresh user tickets
-      onTicketIssued(userId.trim());
+      onTicketIssued(selectedUser.id);
 
       // Auto bump seat number for next ticket
       const numMatch = seatNumber.match(/(\d+)$/);
@@ -144,7 +118,7 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
             </div>
           </div>
           <span className="rounded-md bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-400">
-            CHẾ ĐỘ TẠM THỜI
+            CẤP VÉ THỦ CÔNG
           </span>
         </div>
 
@@ -189,7 +163,7 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
             >
               {availableUsers.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.name} {u.isDemoAppUser ? '(📱 Demo App)' : ''} — {u.email}
+                  {u.name} ({u.username}) — {u.email}
                 </option>
               ))}
             </select>
@@ -204,11 +178,7 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-white text-xs">{selectedUser.name}</span>
-                      {selectedUser.isDemoAppUser && (
-                        <span className="rounded bg-[#00e599]/20 text-[#00e599] px-1.5 py-0.5 text-[9px] font-bold flex items-center gap-1">
-                          <Smartphone className="h-2.5 w-2.5" /> APP DEMO
-                        </span>
-                      )}
+                      <span className="text-slate-400">@{selectedUser.username}</span>
                     </div>
                     <div className="text-[11px] text-slate-400 mt-0.5">
                       {selectedUser.email} {selectedUser.phone ? `• ${selectedUser.phone}` : ''}
@@ -224,28 +194,6 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
               </div>
             )}
 
-            {/* Optional Collapsible Manual UUID override (Hidden by default) */}
-            <div className="pt-1.5">
-              <button
-                type="button"
-                onClick={() => setShowManualUuid(!showManualUuid)}
-                className="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors"
-              >
-                <span>Tùy chọn nâng cao: Nhập UUID thủ công</span>
-                {showManualUuid ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              </button>
-              {showManualUuid && (
-                <div className="mt-1.5">
-                  <input
-                    type="text"
-                    value={userId}
-                    onChange={(e) => setUserId(e.target.value)}
-                    placeholder="Nhập UUID người dùng tùy chỉnh..."
-                    className="w-full rounded-lg bg-[#090d16] border border-[#1f293d] focus:border-slate-500 focus:outline-none px-3 py-1.5 text-[11px] font-mono text-slate-300"
-                  />
-                </div>
-              )}
-            </div>
           </div>
 
           {/* 3. Tên Khán Giả & Vị Trí Ghế */}
@@ -258,7 +206,7 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
               <input
                 type="text"
                 required
-                value={attendeeName}
+                value={effectiveAttendeeName}
                 onChange={(e) => setAttendeeName(e.target.value)}
                 placeholder="VD: Nguyễn Hoàng Long"
                 className="w-full rounded-xl bg-[#090d16] border border-[#1f293d] focus:border-[#00e599] focus:outline-none focus:ring-1 focus:ring-[#00e599] px-3.5 py-2.5 text-xs text-white"
@@ -329,7 +277,7 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
             ) : (
               <>
                 <Send className="h-4 w-4" />
-                <span>Cấp Vé Cho {attendeeName} (POST Claim Ticket)</span>
+                <span>Cấp Vé Cho {effectiveAttendeeName}</span>
               </>
             )}
           </button>
@@ -338,7 +286,7 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
 
       {/* Helper Footer */}
       <div className="mt-5 pt-4 border-t border-[#1f293d] text-[11px] text-slate-400 leading-relaxed">
-        💡 <strong className="text-slate-300">Hướng dẫn kiểm tra:</strong> Sau khi cấp vé, tài khoản <strong className="text-white">{selectedUser?.name || attendeeName}</strong> mở ứng dụng SecureTix (Android) và bấm <strong className="text-[#00e599]">"Làm mới"</strong> sẽ thấy vé xuất hiện kèm mã Dynamic QR 30s.
+        💡 <strong className="text-slate-300">Hướng dẫn kiểm tra:</strong> Sau khi cấp vé, tài khoản <strong className="text-white">{selectedUser?.name || effectiveAttendeeName}</strong> mở ứng dụng SecureTix (Android) và bấm <strong className="text-[#00e599]">"Làm mới"</strong> sẽ thấy vé xuất hiện kèm mã Dynamic QR 30s.
       </div>
     </div>
   );

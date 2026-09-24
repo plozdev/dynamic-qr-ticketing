@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
+import jsQR from 'jsqr';
 import { 
   ScanLine, 
   DoorOpen, 
   CheckCircle2, 
   XCircle, 
-  Sparkles, 
   History, 
   Trash2, 
   Loader2, 
@@ -42,16 +42,31 @@ export const GateScannerTester: React.FC<GateScannerTesterProps> = ({
   // Session Scan History
   const [history, setHistory] = useState<GateScanHistoryItem[]>([]);
 
-  // Quick helper to generate a sample payload: TICKETING:<ticketId>:<expiresAt>:<totpToken>
-  const handleGenerateSamplePayload = (isExpired: boolean = false) => {
-    const tId = initialTicket?.id || '8a91b2c3-4d5e-6f70-8192-a1b2c3d4e5f6';
-    // If expired, generate a timestamp from 2 minutes ago; else now + 30 seconds
-    const nowSec = Math.floor(Date.now() / 1000);
-    const expiresAt = isExpired ? nowSec - 120 : nowSec + 30;
-    const totpToken = Math.floor(100000 + Math.random() * 900000).toString();
+  const decodeQrImage = async (image: Blob) => {
+    try {
+      const bitmap = await createImageBitmap(image);
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) throw new Error('Không đọc được dữ liệu ảnh.');
+        context.drawImage(bitmap, 0, 0);
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        const decoded = jsQR(pixels.data, pixels.width, pixels.height);
+        if (!decoded?.data) throw new Error('Không tìm thấy QR trong ảnh.');
+        setRawPayload(decoded.data);
+      } finally { bitmap.close(); }
+    } catch (error) {
+      toastError('Không đọc được ảnh QR', getApiErrorMessage(error, 'Không tìm thấy QR trong ảnh.'));
+    }
+  };
 
-    const sample = `TICKETING:${tId}:${expiresAt}:${totpToken}`;
-    setRawPayload(sample);
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const image = Array.from(event.clipboardData.items).find((item) => item.type.startsWith('image/'))?.getAsFile();
+    if (!image) return;
+    event.preventDefault();
+    void decodeQrImage(image);
   };
 
   const handleValidate = async (e?: React.FormEvent) => {
@@ -66,6 +81,7 @@ export const GateScannerTester: React.FC<GateScannerTesterProps> = ({
     try {
       setLoading(true);
       const res = await validateGateQr(gateId.trim(), { rawQrPayload: trimmed });
+      if (res.success !== true) throw new Error(res.message || 'Backend từ chối mã QR.');
 
       // Check if ticket ID is in payload or returned in response
       let extractedTicketId = res.ticketId;
@@ -85,7 +101,7 @@ export const GateScannerTester: React.FC<GateScannerTesterProps> = ({
         `Vé ${extractedTicketId || ''} đã qua cổng ${gateId} thành công.`
       );
 
-      // Add to session scan history
+      // Record only the result returned by the backend.
       const historyItem: GateScanHistoryItem = {
         id: Date.now().toString(),
         timestamp: new Date().toLocaleTimeString('vi-VN'),
@@ -101,10 +117,9 @@ export const GateScannerTester: React.FC<GateScannerTesterProps> = ({
         onTicketStatusChanged();
       }
     } catch (err) {
-      const errMsg = getApiErrorMessage(
-        err,
-        'Cổng soát vé từ chối: Mã không hợp lệ, đã sử dụng hoặc hết hạn 30s!'
-      );
+      const errMsg = navigator.onLine
+        ? getApiErrorMessage(err, 'Backend từ chối mã QR.')
+        : 'FE đang ngoại tuyến nên không thể xác thực QR với Backend.';
 
       let extractedTicketId: string | undefined;
       if (trimmed.startsWith('TICKETING:')) {
@@ -215,27 +230,7 @@ export const GateScannerTester: React.FC<GateScannerTesterProps> = ({
                     <span>Chuỗi QR Payload (Quét từ app điện thoại)</span> <span className="text-[#00e599]">*</span>
                   </label>
                   
-                  {/* Quick Generator Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateSamplePayload(false)}
-                      className="flex items-center gap-1 text-[11px] text-[#00d2ff] hover:text-[#00e599] transition-colors"
-                      title="Tạo chuỗi QR mẫu hợp lệ (TOTP + 30s)"
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      <span>Sinh mã hợp lệ mẫu</span>
-                    </button>
-                    <span className="text-slate-600">|</span>
-                    <button
-                      type="button"
-                      onClick={() => handleGenerateSamplePayload(true)}
-                      className="text-[11px] text-rose-400 hover:text-rose-300 transition-colors"
-                      title="Tạo chuỗi QR mẫu đã quá hạn để thử nghiệm mã lỗi"
-                    >
-                      <span>Mã hết hạn</span>
-                    </button>
-                  </div>
+                  <span className="text-[11px] text-slate-400">Dán chuỗi QR hoặc ảnh QR từ mobile. Kết quả chỉ do Backend xác nhận.</span>
                 </div>
 
                 <textarea
@@ -243,11 +238,20 @@ export const GateScannerTester: React.FC<GateScannerTesterProps> = ({
                   required
                   value={rawPayload}
                   onChange={(e) => setRawPayload(e.target.value)}
+                  onPaste={handlePaste}
                   placeholder="Dán chuỗi quét được tại đây (Dạng: TICKETING:<ticketId>:<expiresAt>:<totpToken>)..."
                   className="w-full rounded-xl bg-[#090d16] border border-[#1f293d] focus:border-[#00d2ff] focus:outline-none focus:ring-1 focus:ring-[#00d2ff] p-3 text-xs font-mono text-white placeholder-slate-500 leading-relaxed"
                 />
+                <label className="mt-2 inline-flex cursor-pointer items-center rounded-lg border border-[#1f293d] px-3 py-2 text-slate-300 hover:text-white">
+                  Tải ảnh QR từ điện thoại
+                  <input type="file" accept="image/*" className="sr-only" onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) void decodeQrImage(file);
+                    event.target.value = '';
+                  }} />
+                </label>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Định dạng chuẩn: <code className="text-slate-400">TICKETING:&lt;UUID&gt;:&lt;UNIX_TIMESTAMP&gt;:&lt;6_DIGIT_TOTP&gt;</code>
+                  Định dạng chuẩn: <code className="text-slate-400">TICKETING:&lt;UUID&gt;:&lt;UNIX_TIMESTAMP&gt;:&lt;HMAC_SHA256_BASE64URL&gt;</code>
                 </p>
               </div>
 
@@ -338,7 +342,7 @@ export const GateScannerTester: React.FC<GateScannerTesterProps> = ({
                   </div>
 
                   <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">
-                    Hệ thống đã ghi nhận nhật ký an ninh. Các nguyên nhân phổ biến: Vé đã được sử dụng trước đó, mã QR xoay vòng 30s đã quá hạn, hoặc có dấu hiệu chụp màn hình quay video (Replay Attack).
+                    FE chỉ hiển thị kết quả từ Backend. Nếu mất mạng, mã QR chưa được xác thực và không có lượt quét thành công.
                   </p>
                 </div>
               </div>
@@ -435,7 +439,7 @@ export const GateScannerTester: React.FC<GateScannerTesterProps> = ({
               </li>
               <li className="flex items-start gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400 mt-1.5 shrink-0" />
-                <span><strong className="text-slate-200">Gate Access Control:</strong> Chỉ cho phép qua đúng các cổng đã được đăng ký trong danh sách cổng của sự kiện.</span>
+                <span><strong className="text-slate-200">Xác thực online:</strong> Cổng giả lập gửi payload tới Backend; khi mất mạng, FE không thể cho vé qua cổng.</span>
               </li>
             </ul>
           </div>

@@ -10,7 +10,6 @@ import {
   Armchair, 
   CheckCircle2, 
   Clock, 
-  Smartphone, 
   ChevronDown, 
   ChevronUp 
 } from 'lucide-react';
@@ -74,6 +73,8 @@ export const UserTicketsList: React.FC<UserTicketsListProps> = ({
             ĐÃ QUA CỔNG
           </span>
         );
+      case 'REVOKED':
+        return <span className="inline-flex rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-bold text-rose-400">VÉ ĐÃ THU HỒI</span>;
       case 'NOT_YET_CHECK_IN':
       default:
         return (
@@ -129,7 +130,7 @@ export const UserTicketsList: React.FC<UserTicketsListProps> = ({
           >
             {availableUsers.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name} {u.isDemoAppUser ? '(📱 Demo App)' : ''} — {u.email}
+                {u.name} (@{u.username}) — {u.email}
               </option>
             ))}
           </select>
@@ -145,11 +146,7 @@ export const UserTicketsList: React.FC<UserTicketsListProps> = ({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-white">{selectedUser.name}</span>
-                  {selectedUser.isDemoAppUser && (
-                    <span className="text-[10px] text-[#00e599] font-medium flex items-center gap-0.5">
-                      <Smartphone className="h-3 w-3" /> App Demo
-                    </span>
-                  )}
+                  <span className="text-[10px] text-slate-400">@{selectedUser.username}</span>
                 </div>
                 <div className="text-[11px] text-slate-400">
                   {selectedUser.email} {selectedUser.phone ? `• ${selectedUser.phone}` : ''}

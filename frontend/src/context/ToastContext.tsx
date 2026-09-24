@@ -66,34 +66,19 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         className="fixed bottom-5 right-5 z-50 flex flex-col gap-2.5 max-w-md w-full pointer-events-none px-4 sm:px-0"
       >
         {toasts.map((toast) => {
-          let borderColor = 'border-[#1f293d]';
-          let icon = <Info className="w-5 h-5 text-[#00d2ff]" />;
-          let glowClass = 'shadow-lg';
-
-          if (toast.type === 'success') {
-            borderColor = 'border-[#00e599]/40';
-            icon = <CheckCircle2 className="w-5 h-5 text-[#00e599] shrink-0" />;
-            glowClass = 'shadow-[0_0_20px_-3px_rgba(0,229,153,0.3)]';
-          } else if (toast.type === 'error') {
-            borderColor = 'border-rose-500/40';
-            icon = <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" />;
-            glowClass = 'shadow-[0_0_20px_-3px_rgba(244,63,94,0.35)]';
-          } else if (toast.type === 'warning') {
-            borderColor = 'border-amber-500/40';
-            icon = <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />;
-            glowClass = 'shadow-[0_0_20px_-3px_rgba(245,158,11,0.3)]';
-          } else {
-            borderColor = 'border-[#00d2ff]/40';
-            icon = <Info className="w-5 h-5 text-[#00d2ff] shrink-0" />;
-            glowClass = 'shadow-[0_0_20px_-3px_rgba(0,210,255,0.3)]';
-          }
+          const style = {
+            success: { border: 'border-[#00e599]/40', glow: 'shadow-[0_0_20px_-3px_rgba(0,229,153,0.3)]', icon: <CheckCircle2 className="w-5 h-5 text-[#00e599] shrink-0" /> },
+            error: { border: 'border-rose-500/40', glow: 'shadow-[0_0_20px_-3px_rgba(244,63,94,0.35)]', icon: <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" /> },
+            warning: { border: 'border-amber-500/40', glow: 'shadow-[0_0_20px_-3px_rgba(245,158,11,0.3)]', icon: <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" /> },
+            info: { border: 'border-[#00d2ff]/40', glow: 'shadow-[0_0_20px_-3px_rgba(0,210,255,0.3)]', icon: <Info className="w-5 h-5 text-[#00d2ff] shrink-0" /> },
+          }[toast.type];
 
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto bg-[#121826]/95 backdrop-blur-md border ${borderColor} ${glowClass} rounded-xl p-4 flex items-start gap-3 transition-all duration-300 animate-in fade-in slide-in-from-bottom-3`}
+              className={`pointer-events-auto bg-[#121826]/95 backdrop-blur-md border ${style.border} ${style.glow} rounded-xl p-4 flex items-start gap-3 transition-all duration-300 animate-in fade-in slide-in-from-bottom-3`}
             >
-              <div className="mt-0.5">{icon}</div>
+              <div className="mt-0.5">{style.icon}</div>
               <div className="flex-1 min-w-0">
                 <h4 className="text-sm font-semibold text-slate-100 leading-tight">
                   {toast.title}
@@ -119,6 +104,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
+// Provider and hook intentionally share the same context module.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useToast = (): ToastContextType => {
   const context = useContext(ToastContext);
   if (!context) {

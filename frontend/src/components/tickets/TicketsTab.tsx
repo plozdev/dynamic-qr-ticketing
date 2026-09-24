@@ -40,7 +40,7 @@ export const TicketsTab: React.FC<TicketsTabProps> = ({
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-amber-300">
-              Chế Độ Cấp Vé Thủ Công (Admin Direct Claim - Demo Phase)
+              Cấp Vé Trực Tiếp Cho Tài Khoản Đã Đăng Ký
             </h3>
             <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-300 border border-amber-500/30">
               TẠM THỜI

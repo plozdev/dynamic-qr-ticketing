@@ -1,163 +1,150 @@
-import axios, { AxiosError } from 'axios';
-import type { 
-  Event, 
-  CreateEventRequest, 
-  Ticket, 
-  ClaimTicketRequest, 
-  GateValidateRequest, 
-  GateValidateResponse, 
-  UserAccount 
-} from '../types';
-
+import axios from 'axios';
+import type { Event, CreateEventRequest, Ticket, ClaimTicketRequest, GateValidateRequest, GateValidateResponse, UserAccount } from '../types';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  },
+  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
 });
 
-// Helper for extracting API error messages
-export const getApiErrorMessage = (error: unknown, fallback: string = 'Đã có lỗi xảy ra'): string => {
-  if (axios.isAxiosError(error)) {
-    const axiosError = error as AxiosError<{ message?: string; error?: string; detail?: string; reason?: string }>;
-    if (axiosError.response?.data) {
-      const data = axiosError.response.data;
-      return data.message || data.error || data.reason || data.detail || `Lỗi máy chủ (${axiosError.response.status})`;
-    }
-    if (axiosError.code === 'ERR_NETWORK') {
-      return 'Không thể kết nối đến máy chủ Backend (http://localhost:8080). Vui lòng kiểm tra Spring Boot!';
-    }
-    return axiosError.message || fallback;
+const TOKEN_KEY = 'securetix_admin_session';
+let authToken = sessionStorage.getItem(TOKEN_KEY) || '';
+const setAuthToken = (token: string) => {
+  authToken = token;
+  sessionStorage.setItem(TOKEN_KEY, token);
+};
+export const clearAuthToken = () => {
+  authToken = '';
+  sessionStorage.removeItem(TOKEN_KEY);
+};
+apiClient.interceptors.request.use((config) => {
+  if (authToken) config.headers.set('Authorization', `Bearer ${authToken}`);
+  return config;
+});
+apiClient.interceptors.response.use((response) => response, (error: unknown) => {
+  if (axios.isAxiosError(error) && error.response?.status === 401 && authToken) {
+    clearAuthToken();
+    window.dispatchEvent(new Event('securetix-session-expired'));
   }
-  if (error instanceof Error) {
-    return error.message;
+  return Promise.reject(error);
+});
+
+interface AuthResponse {
+  token: string;
+  roles: string[];
+}
+
+export const loginAdmin = async (username: string, password: string): Promise<void> => {
+  clearAuthToken();
+  const { data } = await apiClient.post<AuthResponse>('/auth/login', { username, password });
+  if (!data.roles.includes('ADMIN')) {
+    try {
+      await apiClient.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${data.token}` } });
+    } catch { /* access remains denied even if revocation cannot reach the server */ }
+    throw new Error('Tài khoản chưa được cấp quyền quản trị.');
   }
-  return fallback;
+  setAuthToken(data.token);
 };
 
-// 1. Events APIs
+export const restoreAdminSession = async (): Promise<boolean> => {
+  if (!authToken) return false;
+  try {
+    const { data } = await apiClient.get<{ roles: string[] }>('/auth/me');
+    if (data.roles.includes('ADMIN')) return true;
+  } catch { /* expired or revoked session */ }
+  clearAuthToken();
+  return false;
+};
+
+export const logoutAdmin = async (): Promise<void> => {
+  const token = authToken;
+  clearAuthToken();
+  try {
+    if (token) await apiClient.post('/auth/logout', {}, { headers: { Authorization: `Bearer ${token}` } });
+  } catch { /* the local session has already been removed */ }
+};
+
+export const getApiErrorMessage = (error: unknown, fallback = 'Đã có lỗi xảy ra'): string => {
+  if (axios.isAxiosError(error)) {
+    if (!error.response) return 'Không kết nối được Backend.';
+    const data = error.response.data as { message?: string; detail?: string; error?: string } | undefined;
+    return data?.message || data?.detail || data?.error || `Lỗi máy chủ (${error.response.status})`;
+  }
+  return error instanceof Error ? error.message : fallback;
+};
+
 export const fetchEvents = async (): Promise<Event[]> => {
-  const response = await apiClient.get('/events');
-  // Handle various Spring Boot response shapes (Page, List, Result wrapper)
-  if (Array.isArray(response.data)) {
-    return response.data;
-  }
-  if (response.data && Array.isArray(response.data.content)) {
-    return response.data.content;
-  }
-  if (response.data && Array.isArray(response.data.data)) {
-    return response.data.data;
-  }
-  return [];
+  const { data } = await apiClient.get<Event[]>('/events');
+  return data;
 };
 
 export const createEvent = async (eventData: CreateEventRequest): Promise<Event> => {
-  const response = await apiClient.post<Event>('/events', eventData);
-  return response.data;
+  const { data } = await apiClient.post<Event>('/events', eventData);
+  return data;
 };
 
-// 2. Ticket Assignment APIs
-export const claimTicket = async (
-  eventId: string, 
-  userId: string, 
-  claimData: ClaimTicketRequest
-): Promise<Ticket> => {
-  const response = await apiClient.post<Ticket>(
-    `/events/${eventId}/claim`, 
-    claimData, 
-    { params: { userId } }
-  );
-  return response.data;
-};
-
-export const fetchUserTickets = async (userId: string): Promise<Ticket[]> => {
-  const response = await apiClient.get('/tickets', { params: { userId } });
-  if (Array.isArray(response.data)) {
-    return response.data;
-  }
-  if (response.data && Array.isArray(response.data.content)) {
-    return response.data.content;
-  }
-  if (response.data && Array.isArray(response.data.data)) {
-    return response.data.data;
-  }
-  return [];
-};
-
-// 3. Gate Validator APIs
-export const validateGateQr = async (
-  gateId: string, 
-  payload: GateValidateRequest
-): Promise<GateValidateResponse> => {
-  const response = await apiClient.post<GateValidateResponse>(
-    `/gates/${gateId}/validate`, 
-    payload
-  );
-  return response.data;
-};
-
-// 4. Health Check
-export const checkHealth = async (): Promise<boolean> => {
-  try {
-    await apiClient.get('/events', { timeout: 3000 });
-    return true;
-  } catch (error) {
-    // If we received an HTTP response (even 4xx/5xx or 401), the server is running
-    if (axios.isAxiosError(error) && error.response) {
-      return true;
-    }
-    return false;
-  }
-};
-
-export interface BackendUserDto {
+interface BackendUserDto {
   id: string;
-  firebaseUid?: string;
-  email?: string;
-  displayName?: string;
-  avatarUrl?: string;
+  username: string;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  roles: string[];
 }
 
-// 5. User Account APIs (Real Backend Integration)
 export const fetchUsers = async (): Promise<UserAccount[]> => {
-  const response = await apiClient.get<BackendUserDto[]>('/users');
-  const backendList = Array.isArray(response.data) ? response.data : [];
-  return backendList.map((u) => ({
-    id: u.id,
-    name: u.displayName || (u.email ? u.email.split('@')[0] : 'Khán Giả'),
-    email: u.email || '',
-    phone: '',
-    role: 'USER',
-    isDemoAppUser: u.id === '11111111-2222-3333-4444-555555555555',
-    createdAt: new Date().toISOString(),
+  const { data } = await apiClient.get<BackendUserDto[]>('/admin/users');
+  return data.map((user) => ({
+    id: user.id,
+    username: user.username,
+    name: user.displayName || user.username,
+    email: user.email || '',
+    role: user.roles.includes('ADMIN') ? 'ADMIN' as const : 'USER' as const,
+    createdAt: '',
   }));
 };
 
-export const saveUser = async (user: UserAccount): Promise<UserAccount> => {
-  const response = await apiClient.post<BackendUserDto>('/users', {
-    id: user.id,
-    email: user.email,
-    displayName: user.name,
-    avatarUrl: '',
-  });
-  const u = response.data;
-  return {
-    id: u.id,
-    name: u.displayName || (u.email ? u.email.split('@')[0] : 'Khán Giả'),
-    email: u.email || '',
-    phone: user.phone || '',
-    role: user.role || 'USER',
-    isDemoAppUser: false,
-    createdAt: new Date().toISOString(),
-  };
+interface BackendTicketDto {
+  ticketId: string;
+  eventId: string;
+  eventName: string;
+  attendeeName: string;
+  categoryName: string;
+  seatNumber: string;
+  status: string;
+  startDateTime?: string;
+}
+
+const mapTicket = (ticket: BackendTicketDto, userId: string): Ticket => ({
+  id: ticket.ticketId,
+  eventId: ticket.eventId,
+  eventName: ticket.eventName,
+  userId,
+  attendeeName: ticket.attendeeName,
+  categoryName: ticket.categoryName,
+  seatNumber: ticket.seatNumber,
+  status: ticket.status,
+  issuedAt: ticket.startDateTime,
+});
+
+export const claimTicket = async (eventId: string, userId: string, claimData: ClaimTicketRequest): Promise<Ticket> => {
+  const { data } = await apiClient.post<BackendTicketDto>('/admin/tickets', { eventId, userId, ...claimData });
+  return mapTicket(data, userId);
 };
 
-export const deleteUser = async (userId: string): Promise<void> => {
-  await apiClient.delete(`/users/${userId}`);
+export const fetchUserTickets = async (userId: string): Promise<Ticket[]> => {
+  const { data } = await apiClient.get<BackendTicketDto[]>(`/admin/tickets/users/${encodeURIComponent(userId)}`);
+  return data.map((ticket) => mapTicket(ticket, userId));
 };
 
+export const validateGateQr = async (gateId: string, payload: GateValidateRequest): Promise<GateValidateResponse> => {
+  const { data } = await apiClient.post<GateValidateResponse>(`/gates/${encodeURIComponent(gateId)}/validate`, payload);
+  return data;
+};
+
+export const checkHealth = async (): Promise<boolean> => {
+  try { await apiClient.get('/events', { timeout: 3000 }); return true; }
+  catch { return false; }
+};

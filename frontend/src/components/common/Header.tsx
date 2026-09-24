@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Server, RefreshCw, QrCode } from 'lucide-react';
+import { ShieldCheck, Server, RefreshCw, QrCode, LogOut } from 'lucide-react';
 import { checkHealth, API_BASE_URL } from '../../services/api';
 
 interface HeaderProps {
   onRefreshAll?: () => void;
+  onLogout?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onRefreshAll }) => {
+export const Header: React.FC<HeaderProps> = ({ onRefreshAll, onLogout }) => {
   const [isBackendOnline, setIsBackendOnline] = useState<boolean | null>(null);
   const [checking, setChecking] = useState<boolean>(false);
 
@@ -18,9 +19,15 @@ export const Header: React.FC<HeaderProps> = ({ onRefreshAll }) => {
   };
 
   useEffect(() => {
-    performHealthCheck();
-    const interval = setInterval(performHealthCheck, 30000); // Check every 30s
-    return () => clearInterval(interval);
+    let active = true;
+    const refreshStatus = () => {
+      void checkHealth().then((online) => {
+        if (active) setIsBackendOnline(online);
+      });
+    };
+    refreshStatus();
+    const interval = setInterval(refreshStatus, 30000);
+    return () => { active = false; clearInterval(interval); };
   }, []);
 
   return (
@@ -105,6 +112,13 @@ export const Header: React.FC<HeaderProps> = ({ onRefreshAll }) => {
           )}
 
           {/* Dynamic QR Badge */}
+          {onLogout && (
+            <button type="button" onClick={onLogout}
+              className="flex items-center gap-1.5 rounded-xl border border-[#1f293d] px-3 py-1.5 text-xs text-slate-300 hover:text-white"
+              aria-label="Đăng xuất">
+              <LogOut className="h-3.5 w-3.5" /> Đăng xuất
+            </button>
+          )}
           <div className="hidden lg:flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#00d2ff]/10 to-transparent border border-[#00d2ff]/20 px-3 py-1.5">
             <QrCode className="h-3.5 w-3.5 text-[#00d2ff]" />
             <span className="text-[11px] text-[#00d2ff] font-medium">

@@ -4,8 +4,10 @@ import {
   fetchEvents, 
   fetchUserTickets, 
   fetchUsers,
-  saveUser, 
-  deleteUser, 
+  loginAdmin,
+  logoutAdmin,
+  restoreAdminSession,
+  API_BASE_URL,
   getApiErrorMessage 
 } from './services/api';
 import { ToastProvider, useToast } from './context/ToastContext';
@@ -18,7 +20,7 @@ import { TicketsTab } from './components/tickets/TicketsTab';
 import { UsersTab } from './components/users/UsersTab';
 import { GateScannerTester } from './components/gate/GateScannerTester';
 
-function MainPortal() {
+function MainPortal({ onLogout }: { onLogout: () => void }) {
   const { error: toastError, info } = useToast();
 
   // Navigation State
@@ -45,19 +47,25 @@ function MainPortal() {
     try {
       const data = await fetchUsers();
       setUsers(data);
-      if (data.length > 0 && !userId) {
-        setUserId(data[0].id);
-      }
+      if (data.length > 0) setUserId((current) => current || data[0].id);
     } catch (err) {
       const msg = getApiErrorMessage(err, 'Không thể tải danh sách người dùng từ backend.');
       toastError('Lỗi tải người dùng', msg);
     }
-  }, [userId, toastError]);
+  }, [toastError]);
 
   // Initialize Users from Backend
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    let current = true;
+    fetchUsers().then((data) => {
+      if (!current) return;
+      setUsers(data);
+      if (data.length > 0) setUserId((selected) => selected || data[0].id);
+    }).catch((err) => {
+      if (current) toastError('Lỗi tải người dùng', getApiErrorMessage(err));
+    });
+    return () => { current = false; };
+  }, [toastError]);
 
   // Fetch Events from Spring Boot Backend
   const loadEvents = useCallback(async () => {
@@ -66,9 +74,7 @@ function MainPortal() {
       setEventsError(null);
       const data = await fetchEvents();
       setEvents(data);
-      if (data.length > 0 && !selectedEventId) {
-        setSelectedEventId(data[0].id);
-      }
+      if (data.length > 0) setSelectedEventId((current) => current || data[0].id);
     } catch (err) {
       const msg = getApiErrorMessage(err, 'Không thể tải danh sách sự kiện.');
       setEventsError(msg);
@@ -76,7 +82,7 @@ function MainPortal() {
     } finally {
       setLoadingEvents(false);
     }
-  }, [selectedEventId, toastError]);
+  }, [toastError]);
 
   // Fetch Tickets for a specific user
   const loadUserTickets = useCallback(
@@ -100,15 +106,33 @@ function MainPortal() {
 
   // Initial Load
   useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
+    let current = true;
+    fetchEvents().then((data) => {
+      if (!current) return;
+      setEvents(data);
+      setLoadingEvents(false);
+      if (data.length > 0) setSelectedEventId((selected) => selected || data[0].id);
+    }).catch((err) => {
+      if (!current) return;
+      const message = getApiErrorMessage(err, 'Không thể tải danh sách sự kiện.');
+      setEventsError(message);
+      setLoadingEvents(false);
+      toastError('Lỗi kết nối Backend', message);
+    });
+    return () => { current = false; };
+  }, [toastError]);
 
   // Load user tickets when userId changes or when entering tickets tab
   useEffect(() => {
-    if (activeTab === 'tickets' && userId) {
-      loadUserTickets(userId);
-    }
-  }, [activeTab, userId, loadUserTickets]);
+    if (activeTab !== 'tickets' || !userId) return;
+    let current = true;
+    fetchUserTickets(userId).then((data) => {
+      if (current) setUserTickets(data);
+    }).catch((err) => {
+      if (current) toastError('Lỗi tải vé người dùng', getApiErrorMessage(err));
+    });
+    return () => { current = false; };
+  }, [activeTab, userId, toastError]);
 
   // Navigation Handlers
   const handleSelectEventForTicket = (eventId: string) => {
@@ -135,25 +159,6 @@ function MainPortal() {
     info('Chuyển sang Giả Lập Soát Vé', `Đã chuẩn bị kiểm thử cho vé của ${ticket.attendeeName}`);
   };
 
-  // User Store Handlers
-  const handleSaveUser = async (user: UserAccount) => {
-    try {
-      await saveUser(user);
-      await loadUsers();
-    } catch (err) {
-      toastError('Lỗi lưu người dùng', getApiErrorMessage(err, 'Không thể lưu người dùng lên hệ thống.'));
-    }
-  };
-
-  const handleDeleteUser = async (deleteId: string) => {
-    try {
-      await deleteUser(deleteId);
-      await loadUsers();
-    } catch (err) {
-      toastError('Lỗi xóa người dùng', getApiErrorMessage(err, 'Không thể xóa người dùng khỏi hệ thống.'));
-    }
-  };
-
   const handleResetUsers = () => {
     loadUsers();
     info('Cập nhật danh sách', 'Đã đồng bộ lại danh sách người dùng từ hệ thống.');
@@ -170,7 +175,7 @@ function MainPortal() {
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col selection:bg-[#00e599]/30 selection:text-[#00e599]">
       {/* Sticky Top Header */}
-      <Header onRefreshAll={handleRefreshAll} />
+      <Header onRefreshAll={handleRefreshAll} onLogout={onLogout} />
 
       {/* Main Container */}
       <main className="flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-8">
@@ -212,8 +217,6 @@ function MainPortal() {
             {activeTab === 'users' && (
               <UsersTab
                 users={users}
-                onSaveUser={handleSaveUser}
-                onDeleteUser={handleDeleteUser}
                 onResetUsers={handleResetUsers}
                 onSelectUserForTicket={handleSelectUserForTicket}
                 onViewUserTickets={handleViewUserTickets}
@@ -239,7 +242,7 @@ function MainPortal() {
             SecureTix Admin Portal • Dynamic QR Ticketing Platform &copy; 2026
           </div>
           <div className="font-mono text-[11px] text-slate-400">
-            Connected to Spring Boot API: <span className="text-[#00e599]">http://localhost:8080/api/v1</span>
+            Connected to Spring Boot API: <span className="text-[#00e599]">{API_BASE_URL}</span>
           </div>
         </div>
       </footer>
@@ -247,10 +250,69 @@ function MainPortal() {
   );
 }
 
+function AdminGate() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [ready, setReady] = useState<boolean | null>(null);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void restoreAdminSession().then((authenticated) => {
+      if (active) setReady(authenticated);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    const handleExpired = () => setReady(false);
+    window.addEventListener('securetix-session-expired', handleExpired);
+    return () => window.removeEventListener('securetix-session-expired', handleExpired);
+  }, []);
+
+  if (ready === null) return <main className="min-h-screen bg-[#090d16] text-slate-400 grid place-items-center">Đang kiểm tra phiên đăng nhập...</main>;
+  if (ready) return <MainPortal onLogout={() => {
+    setReady(false);
+    void logoutAdmin();
+  }} />;
+
+  return <main className="min-h-screen bg-[#090d16] text-white flex items-center justify-center p-4">
+    <form className="w-full max-w-sm rounded-2xl bg-[#121826] border border-[#1f293d] p-6 space-y-4"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+          await loginAdmin(username.trim(), password);
+          setPassword('');
+          setReady(true);
+        } catch (err) {
+          setError(getApiErrorMessage(err, 'Không thể đăng nhập.'));
+        } finally { setLoading(false); }
+      }}>
+      <h1 className="text-xl font-bold">Đăng nhập SecureTix Admin</h1>
+      <p className="text-sm text-slate-400">Dùng tài khoản đã được cấp quyền quản trị.</p>
+      <label className="block text-sm text-slate-300">Tên đăng nhập
+        <input type="text" autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)}
+          className="mt-1 w-full rounded-xl bg-[#090d16] border border-[#1f293d] px-3 py-2 text-white" />
+      </label>
+      <label className="block text-sm text-slate-300">Mật khẩu
+        <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)}
+          className="mt-1 w-full rounded-xl bg-[#090d16] border border-[#1f293d] px-3 py-2 text-white" />
+      </label>
+      {error && <p className="text-sm text-rose-400">{error}</p>}
+      <button type="submit" disabled={loading} className="w-full rounded-xl bg-[#00e599] text-slate-950 font-bold py-2 disabled:opacity-50">
+        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+      </button>
+    </form>
+  </main>;
+}
+
 export default function App() {
   return (
     <ToastProvider>
-      <MainPortal />
+      <AdminGate />
     </ToastProvider>
   );
 }

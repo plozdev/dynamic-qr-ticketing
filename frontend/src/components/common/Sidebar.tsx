@@ -29,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, event
     {
       id: 'users' as TabType,
       label: 'Quản Lý Tài Khoản',
-      subtitle: 'Danh sách User / Demo App',
+      subtitle: 'Tài khoản đã đăng ký',
       icon: Users,
     },
     {
