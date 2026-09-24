@@ -1,5 +1,6 @@
 package com.ticketing.mobile.ticket_display.presentation.ui
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -41,14 +42,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import com.ticketing.mobile.ticket_display.data.dto.EventItemDto
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -84,6 +82,7 @@ import com.ticketing.mobile.ui.theme.TextHighEmphasis
 import com.ticketing.mobile.ui.theme.TextMediumEmphasis
 import com.ticketing.mobile.ui.theme.TextMuted
 import java.util.Locale
+import androidx.compose.ui.platform.LocalLocale
 
 /**
  * Mục chip lọc danh mục sự kiện kèm số lượng.
@@ -394,6 +393,7 @@ fun MyTicketsListScreen(
     modifier: Modifier = Modifier,
     onTicketSelected: ((UserTicketItem) -> Unit)? = null,
     onScannerClick: (() -> Unit)? = null,
+    onProfileClick: (() -> Unit)? = null,
     onLogoutClick: (() -> Unit)? = null
 ) {
     var selectedTabIndex by remember { mutableIntStateOf(0) }
@@ -459,7 +459,7 @@ fun MyTicketsListScreen(
         searchQuery = searchQuery,
         onSearchQueryChange = { searchQuery = it },
         onScannerClick = onScannerClick,
-        onProfileClick = onLogoutClick,
+        onProfileClick = onProfileClick ?: onLogoutClick,
         modifier = modifier
     )
 
@@ -907,6 +907,7 @@ fun UserTicketCardLockedPreview() {
 /**
  * Nội dung Bottom Sheet Khám Phá & Nhận Vé Nhanh (1-Click Claim).
  */
+@SuppressLint("NonObservableLocale")
 @Composable
 fun EventClaimBottomSheetContent(
     events: List<EventItemDto>,
@@ -915,56 +916,7 @@ fun EventClaimBottomSheetContent(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val displayEvents = remember(events) {
-        events.ifEmpty {
-            listOf(
-                EventItemDto(
-                    id = "e1111111-1111-1111-1111-111111111111",
-                    name = "Hà Nội Rock Fest 2026",
-                    description = "Đại nhạc hội Rock cuồng nhiệt quy tụ các ban nhạc hàng đầu",
-                    venueName = "SVĐ Quốc Gia Mỹ Đình, Hà Nội",
-                    category = "Âm nhạc & Concert",
-                    availableTickets = 599,
-                    totalTickets = 1000,
-                    basePrice = 450000.0,
-                    isHotTrend = true
-                ),
-                EventItemDto(
-                    id = "e2222222-2222-2222-2222-222222222222",
-                    name = "Đại Nhạc Hội Monsoon EDM 2026",
-                    description = "Bữa tiệc âm thanh ánh sáng bùng nổ cùng dàn DJ quốc tế",
-                    venueName = "TT Hội Nghị Quốc Gia, Hà Nội",
-                    category = "Âm nhạc & Concert",
-                    availableTickets = 1349,
-                    totalTickets = 3000,
-                    basePrice = 690000.0,
-                    isHotTrend = true
-                ),
-                EventItemDto(
-                    id = "e4444444-4444-4444-4444-444444444444",
-                    name = "Anh Trai \"Say Hi\" Live Concert 2026",
-                    description = "Đêm concert trực tiếp của 30 Anh Trai bùng nổ cùng khán giả",
-                    venueName = "Khu Đô Thị Vạn Phúc City, TP.HCM",
-                    category = "Âm nhạc & Concert",
-                    availableTickets = 2149,
-                    totalTickets = 20000,
-                    basePrice = 800000.0,
-                    isHotTrend = true
-                ),
-                EventItemDto(
-                    id = "e3333333-3333-3333-3333-333333333333",
-                    name = "Chung Kết Cúp Quốc Gia 2026",
-                    description = "Trận derby rực lửa thủ đô quyết định cúp vô địch",
-                    venueName = "SVĐ Hàng Đẫy, Hà Nội",
-                    category = "Thể thao",
-                    availableTickets = 1199,
-                    totalTickets = 15000,
-                    basePrice = 200000.0,
-                    isHotTrend = false
-                )
-            )
-        }
-    }
+    val displayEvents = events
 
     var claimingEventId by remember { mutableStateOf<String?>(null) }
 
@@ -1101,7 +1053,7 @@ fun EventClaimBottomSheetContent(
                                     fontWeight = FontWeight.Bold
                                 )
                                 Text(
-                                    text = "${String.format(Locale.getDefault(), "%,.0f", event.basePrice)} đ",
+                                    text = "${String.format(LocalLocale.current.platformLocale, "%,.0f", event.basePrice)} đ",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = TextHighEmphasis

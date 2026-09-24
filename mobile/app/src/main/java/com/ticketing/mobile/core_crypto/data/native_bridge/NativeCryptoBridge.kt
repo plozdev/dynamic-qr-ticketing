@@ -27,14 +27,14 @@ class NativeCryptoBridge {
 
     external fun generateDynamicTotpToken(
         ticketId: String,
-        secretKey: String,
+        secretKey: ByteArray,
         epochSeconds: Long,
         intervalSec: Int
     ): String
 
     external fun verifyDynamicTotpToken(
         ticketId: String,
-        secretKey: String,
+        secretKey: ByteArray,
         token: String,
         epochSeconds: Long,
         intervalSec: Int,

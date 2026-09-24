@@ -59,6 +59,15 @@ class TicketRepositoryImpl(
                 if (localDataSource is PersistentTicketLocalDataSource) {
                     localDataSource.saveUserTickets(networkResult.data)
                 }
+                // Provision each real backend-issued secret while online so QR can rotate offline.
+                for (ticket in networkResult.data) {
+                    if (localDataSource.getSecretKey(ticket.ticketId).isNullOrBlank()) {
+                        val details = remoteDataSource.fetchTicketById(ticket.ticketId)
+                        if (details is NetworkResult.Success && !details.data.secretKey.isNullOrBlank()) {
+                            localDataSource.saveTicket(details.data)
+                        }
+                    }
+                }
                 Result.success(networkResult.data)
             }
             is NetworkResult.Error -> {
@@ -142,11 +151,8 @@ class TicketRepositoryImpl(
                 else -> {}
             }
         }
-        val effectiveKey = if (!secretKey.isNullOrBlank()) {
-            secretKey
-        } else {
-            "47c9f87cb5e23631f24d1a6e9a7e02e86d0b674b3e813739a8c62b92ef51bcf6"
-        }
+        val effectiveKey = secretKey?.takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("Chưa đồng bộ khóa vé từ Backend. Kết nối mạng và làm mới vé trước khi dùng QR offline.")
 
         val intervalSec = 30
         while (currentCoroutineContext().isActive) {
@@ -156,7 +162,7 @@ class TicketRepositoryImpl(
             val remaining = (expiresAt - currentSec).toInt().coerceAtLeast(1)
 
             val tokenResult = cryptoEngine.generateToken(ticketId, effectiveKey, currentSec, intervalSec)
-            val tokenValue = tokenResult.getOrNull()?.tokenValue ?: "OFFLINE_TOKEN_${currentSec}"
+            val tokenValue = tokenResult.getOrThrow().tokenValue
             val payload = "TICKETING:$ticketId:$expiresAt:$tokenValue"
 
             emit(

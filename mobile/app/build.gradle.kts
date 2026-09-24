@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.gms.google-services")
 }
 
 android {
@@ -19,31 +18,24 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // --- C++ NDK Build Configuration ---
-        // Uncomment once NDK & CMake are installed in Android Studio (SDK Tools -> NDK & CMake)
-        /*
         externalNativeBuild {
             cmake {
                 cppFlags += "-std=c++17"
-                arguments += listOf("-DANDROID_STL=c++_shared")
             }
         }
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
-        */
     }
 
     // --- CMake Build File Location ---
     // Points directly to app/src/main/cpp/CMakeLists.txt
-    /*
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "3.22.1"
         }
     }
-    */
 
     buildTypes {
         release {
@@ -87,11 +79,8 @@ dependencies {
     // Networking (core_network)
     implementation(libs.okhttp.client)
     implementation(libs.okhttp.logging)
+    implementation("com.google.zxing:core:3.5.4")
 
-    // Firebase
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth)
-    implementation(libs.play.services.auth)
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

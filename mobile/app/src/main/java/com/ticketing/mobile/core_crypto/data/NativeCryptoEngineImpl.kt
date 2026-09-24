@@ -32,7 +32,7 @@ class NativeCryptoEngineImpl(
         try {
             val rawToken = if (NativeCryptoBridge.isNativeAvailable()) {
                 try {
-                    bridge.generateDynamicTotpToken(ticketId, secretKey, epochSeconds, intervalSeconds)
+                    bridge.generateDynamicTotpToken(ticketId, decodeSecret(secretKey), epochSeconds, intervalSeconds)
                 } catch (t: Throwable) {
                     android.util.Log.w("NativeCryptoEngine", "Native bridge error, falling back to Java HMAC: ${t.message}")
                     computeJavaHmacTotp(ticketId, secretKey, epochSeconds, intervalSeconds)
@@ -71,7 +71,7 @@ class NativeCryptoEngineImpl(
             if (NativeCryptoBridge.isNativeAvailable()) {
                 try {
                     val isValid = bridge.verifyDynamicTotpToken(
-                        ticketId, secretKey, token, epochSeconds, intervalSeconds, allowedDriftSteps
+                        ticketId, decodeSecret(secretKey), token, epochSeconds, intervalSeconds, allowedDriftSteps
                     )
                     return@withContext if (isValid) VerificationResult.Valid else VerificationResult.InvalidToken
                 } catch (t: Throwable) {
@@ -115,19 +115,13 @@ class NativeCryptoEngineImpl(
         val timeWindow = epochSeconds / interval
         val message = "$ticketId:$timeWindow"
 
-        val keyBytes = try {
-            Base64.getUrlDecoder().decode(secretKey)
-        } catch (e: Exception) {
-            try {
-                Base64.getDecoder().decode(secretKey)
-            } catch (e2: Exception) {
-                secretKey.toByteArray(StandardCharsets.UTF_8)
-            }
-        }
+        val keyBytes = decodeSecret(secretKey)
 
         val mac = Mac.getInstance("HmacSHA256")
         mac.init(SecretKeySpec(keyBytes, "HmacSHA256"))
         val rawHmac = mac.doFinal(message.toByteArray(StandardCharsets.UTF_8))
         return Base64.getUrlEncoder().withoutPadding().encodeToString(rawHmac)
     }
+
+    private fun decodeSecret(secretKey: String): ByteArray = Base64.getUrlDecoder().decode(secretKey)
 }

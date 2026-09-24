@@ -42,8 +42,7 @@ class DefaultTicketRemoteDataSource(
 
     override suspend fun fetchMyTickets(userId: String): NetworkResult<List<UserTicketItem>> {
         return apiClient.get(
-            endpoint = "/tickets",
-            headers = mapOf("X-User-Id" to userId)
+            endpoint = "/tickets"
         ) { jsonStr ->
             val jsonArray = JSONArray(jsonStr)
             val tickets = mutableListOf<UserTicketItem>()

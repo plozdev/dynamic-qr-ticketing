@@ -31,7 +31,10 @@ class TicketDisplayViewModel(
     private var qrObservationJob: Job? = null
 
     init {
-        loadMyTickets()
+        val authState = com.ticketing.mobile.core_network.auth.AuthManager.instance.authState.value
+        if (authState is com.ticketing.mobile.core_network.auth.AuthState.Authenticated) {
+            loadMyTickets(authState.userId)
+        }
         loadEvents()
     }
 
@@ -105,7 +108,7 @@ class TicketDisplayViewModel(
 
     private fun loadTicket(ticketId: String) {
         viewModelScope.launch {
-            setState { copy(isLoading = true, errorMessage = null) }
+            setState { copy(isLoading = true, errorMessage = null, dynamicQr = null) }
             getTicketDetailUseCase(ticketId)
                 .onSuccess { ticket ->
                     setState { copy(ticket = ticket, isLoading = false) }
@@ -123,6 +126,7 @@ class TicketDisplayViewModel(
         qrObservationJob = viewModelScope.launch {
             generateDynamicQrUseCase.observeQrStream(ticketId)
                 .catch { error ->
+                    setState { copy(dynamicQr = null, errorMessage = error.message ?: "Không tạo được QR từ vé đã đồng bộ") }
                     sendEffect(TicketDisplayEffect.ShowToast(error.message ?: "Error updating QR code"))
                 }
                 .collect { qrData ->

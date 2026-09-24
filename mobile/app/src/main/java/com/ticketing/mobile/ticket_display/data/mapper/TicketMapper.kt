@@ -10,9 +10,12 @@ import com.ticketing.mobile.ticket_display.domain.model.TicketStatus
 object TicketMapper {
 
     fun toDomain(dto: TicketDto): Ticket {
-        val parsedStatus = runCatching {
-            TicketStatus.valueOf(dto.statusCode.trim().uppercase())
-        }.getOrDefault(TicketStatus.REVOKED)
+        val parsedStatus = when (dto.statusCode.trim().uppercase()) {
+            "ACTIVE", "READY_TO_CHECK_IN", "NOT_YET_CHECK_IN" -> TicketStatus.ACTIVE
+            "USED", "CHECKED_IN" -> TicketStatus.CHECKED_IN
+            "EXPIRED" -> TicketStatus.EXPIRED
+            else -> TicketStatus.REVOKED
+        }
 
         return Ticket(
             id = dto.ticketId,

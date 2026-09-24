@@ -70,7 +70,9 @@ class PersistentTicketLocalDataSource(
             put(COL_STATUS, ticket.statusCode)
             put(COL_UPDATED_AT, System.currentTimeMillis())
         }
-        db.insertWithOnConflict(TABLE_TICKETS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        if (db.update(TABLE_TICKETS, values, "$COL_TICKET_ID = ?", arrayOf(ticket.ticketId)) == 0) {
+            db.insertWithOnConflict(TABLE_TICKETS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        }
 
         ticket.secretKey?.let { key ->
             secureKeyStorage.saveSecretKey(ticket.ticketId, key)
@@ -82,7 +84,6 @@ class PersistentTicketLocalDataSource(
         val db = dbHelper.writableDatabase
         db.beginTransaction()
         try {
-            db.delete(TABLE_TICKETS, null, null)
             for (ticket in tickets) {
                 val values = ContentValues().apply {
                     put(COL_TICKET_ID, ticket.ticketId)
@@ -99,7 +100,15 @@ class PersistentTicketLocalDataSource(
                     put(COL_IS_CHECK_IN_OPEN, if (ticket.isCheckInOpen) 1 else 0)
                     put(COL_UPDATED_AT, System.currentTimeMillis())
                 }
-                db.insertWithOnConflict(TABLE_TICKETS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                if (db.update(TABLE_TICKETS, values, "$COL_TICKET_ID = ?", arrayOf(ticket.ticketId)) == 0) {
+                    db.insertWithOnConflict(TABLE_TICKETS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+                }
+            }
+            if (tickets.isEmpty()) {
+                db.delete(TABLE_TICKETS, null, null)
+            } else {
+                val placeholders = List(tickets.size) { "?" }.joinToString(",")
+                db.delete(TABLE_TICKETS, "$COL_TICKET_ID NOT IN ($placeholders)", tickets.map { it.ticketId }.toTypedArray())
             }
             db.setTransactionSuccessful()
         } finally {

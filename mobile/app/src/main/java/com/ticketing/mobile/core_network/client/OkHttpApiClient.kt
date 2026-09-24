@@ -196,6 +196,9 @@ class OkHttpApiClient(
     }
 
     companion object {
+        @Volatile
+        var customBaseUrl: String? = null
+
         private fun isEmulator(): Boolean {
             val fp = android.os.Build.FINGERPRINT ?: ""
             val hw = android.os.Build.HARDWARE ?: ""
@@ -206,18 +209,27 @@ class OkHttpApiClient(
         }
 
         fun defaultCandidateUrls(): List<String> {
-            return if (isEmulator()) {
+            val baseList = if (isEmulator()) {
                 listOf(
                     "http://10.0.2.2:8080/api/v1",
                     "http://127.0.0.1:8080/api/v1",
+                    "http://10.0.116.57:8080/api/v1",
                     "http://192.168.2.8:8080/api/v1"
                 )
             } else {
                 listOf(
+                    "http://10.0.116.57:8080/api/v1",
                     "http://127.0.0.1:8080/api/v1",
                     "http://192.168.2.8:8080/api/v1",
                     "http://10.0.2.2:8080/api/v1"
                 )
+            }
+            val custom = customBaseUrl?.trim()?.removeSuffix("/")
+            return if (!custom.isNullOrBlank()) {
+                val fullCustom = if (custom.endsWith("/api/v1")) custom else "$custom/api/v1"
+                (listOf(fullCustom) + baseList).distinct()
+            } else {
+                baseList
             }
         }
     }

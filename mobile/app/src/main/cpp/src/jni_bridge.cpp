@@ -19,7 +19,7 @@ Java_com_ticketing_mobile_core_1crypto_data_native_1bridge_NativeCryptoBridge_ge
         JNIEnv *env,
         jobject /* this */,
         jstring ticketId,
-        jstring secretKey,
+        jbyteArray secretKey,
         jlong epochSeconds,
         jint intervalSec) {
     if (ticketId == nullptr || secretKey == nullptr) {
@@ -28,19 +28,20 @@ Java_com_ticketing_mobile_core_1crypto_data_native_1bridge_NativeCryptoBridge_ge
     }
 
     const char *ticketIdChars = env->GetStringUTFChars(ticketId, nullptr);
-    const char *secretKeyChars = env->GetStringUTFChars(secretKey, nullptr);
-
-    if (!ticketIdChars || !secretKeyChars) {
+    if (!ticketIdChars) {
         if (ticketIdChars) env->ReleaseStringUTFChars(ticketId, ticketIdChars);
-        if (secretKeyChars) env->ReleaseStringUTFChars(secretKey, secretKeyChars);
         throwJavaException(env, "Out of memory getting UTF chars");
         return nullptr;
     }
 
+    std::string keyBytes(static_cast<size_t>(env->GetArrayLength(secretKey)), '\0');
+    env->GetByteArrayRegion(secretKey, 0, env->GetArrayLength(secretKey),
+                            reinterpret_cast<jbyte*>(keyBytes.data()));
+
     jstring result = nullptr;
     try {
         std::string token = g_cryptoEngine.generateTotpToken(
-            ticketIdChars, secretKeyChars, epochSeconds, intervalSec
+            ticketIdChars, keyBytes, epochSeconds, intervalSec
         );
         result = env->NewStringUTF(token.c_str());
     } catch (const std::exception &e) {
@@ -48,7 +49,6 @@ Java_com_ticketing_mobile_core_1crypto_data_native_1bridge_NativeCryptoBridge_ge
     }
 
     env->ReleaseStringUTFChars(ticketId, ticketIdChars);
-    env->ReleaseStringUTFChars(secretKey, secretKeyChars);
 
     return result;
 }
@@ -58,7 +58,7 @@ Java_com_ticketing_mobile_core_1crypto_data_native_1bridge_NativeCryptoBridge_ve
         JNIEnv *env,
         jobject /* this */,
         jstring ticketId,
-        jstring secretKey,
+        jbyteArray secretKey,
         jstring token,
         jlong epochSeconds,
         jint intervalSec,
@@ -68,27 +68,28 @@ Java_com_ticketing_mobile_core_1crypto_data_native_1bridge_NativeCryptoBridge_ve
     }
 
     const char *ticketIdChars = env->GetStringUTFChars(ticketId, nullptr);
-    const char *secretKeyChars = env->GetStringUTFChars(secretKey, nullptr);
     const char *tokenChars = env->GetStringUTFChars(token, nullptr);
 
-    if (!ticketIdChars || !secretKeyChars || !tokenChars) {
+    if (!ticketIdChars || !tokenChars) {
         if (ticketIdChars) env->ReleaseStringUTFChars(ticketId, ticketIdChars);
-        if (secretKeyChars) env->ReleaseStringUTFChars(secretKey, secretKeyChars);
         if (tokenChars) env->ReleaseStringUTFChars(token, tokenChars);
         return JNI_FALSE;
     }
 
+    std::string keyBytes(static_cast<size_t>(env->GetArrayLength(secretKey)), '\0');
+    env->GetByteArrayRegion(secretKey, 0, env->GetArrayLength(secretKey),
+                            reinterpret_cast<jbyte*>(keyBytes.data()));
+
     bool isValid = false;
     try {
         isValid = g_cryptoEngine.verifyTotpToken(
-            ticketIdChars, secretKeyChars, tokenChars, epochSeconds, intervalSec, allowedDriftSteps
+            ticketIdChars, keyBytes, tokenChars, epochSeconds, intervalSec, allowedDriftSteps
         );
     } catch (...) {
         isValid = false;
     }
 
     env->ReleaseStringUTFChars(ticketId, ticketIdChars);
-    env->ReleaseStringUTFChars(secretKey, secretKeyChars);
     env->ReleaseStringUTFChars(token, tokenChars);
 
     return static_cast<jboolean>(isValid ? JNI_TRUE : JNI_FALSE);

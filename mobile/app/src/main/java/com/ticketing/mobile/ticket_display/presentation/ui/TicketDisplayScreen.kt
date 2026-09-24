@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,6 +65,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -77,6 +79,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ticketing.mobile.ticket_display.domain.model.DynamicQrData
 import com.ticketing.mobile.ticket_display.domain.model.Ticket
@@ -371,6 +377,10 @@ fun TicketQrPopupModalCard(
                     else -> {
                         when (displayStatus) {
                             TicketStatus.ACTIVE -> {
+                                if (errorMessage != null) {
+                                    Text(text = errorMessage, color = FieryError, fontSize = 12.sp,
+                                        modifier = Modifier.padding(bottom = 8.dp))
+                                }
                                 ActiveDynamicQrSection(
                                     ticketId = ticketId,
                                     dynamicQr = dynamicQr,
@@ -641,7 +651,7 @@ private fun ActiveDynamicQrSection(
     onRefreshQr: () -> Unit = {}
 ) {
     val remaining = dynamicQr?.remainingSeconds ?: 30
-    val tokenHash = dynamicQr?.qrPayload ?: ticketId
+    val qrPayload = dynamicQr?.qrPayload
 
     val infiniteTransition = rememberInfiniteTransition(label = "syncSpin")
     val rotation by infiniteTransition.animateFloat(
@@ -669,10 +679,11 @@ private fun ActiveDynamicQrSection(
                 .padding(14.dp),
             contentAlignment = Alignment.Center
         ) {
-            DynamicQrMatrixGraphic(
-                tokenHash = tokenHash,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (qrPayload != null) {
+                DynamicQrMatrixGraphic(qrPayload = qrPayload, modifier = Modifier.fillMaxSize())
+            } else {
+                Text("Đang chuẩn bị QR từ vé đã đồng bộ", color = Color.DarkGray, textAlign = TextAlign.Center)
+            }
         }
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -869,98 +880,28 @@ private fun CompactRevokedQr(
  * Đồ họa QR Matrix mô phỏng mã QR ma trận độ phân giải cao với 3 mắt căn chỉnh và dữ liệu sinh động.
  */
 @Composable
-private fun DynamicQrMatrixGraphic(
-    tokenHash: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(6.dp)) {
-            val canvasSize = size.width
-            val moduleCount = 25
-            val moduleSize = canvasSize / moduleCount
-
-            // Vẽ 3 mắt định vị QR (Finder patterns 7x7)
-            fun drawFinderPattern(startX: Float, startY: Float) {
-                drawRect(
-                    color = Color.Black,
-                    topLeft = Offset(startX, startY),
-                    size = Size(moduleSize * 7, moduleSize * 7)
-                )
-                drawRect(
-                    color = Color.White,
-                    topLeft = Offset(startX + moduleSize, startY + moduleSize),
-                    size = Size(moduleSize * 5, moduleSize * 5)
-                )
-                drawRect(
-                    color = Color.Black,
-                    topLeft = Offset(startX + moduleSize * 2, startY + moduleSize * 2),
-                    size = Size(moduleSize * 3, moduleSize * 3)
-                )
-            }
-
-            drawFinderPattern(0f, 0f)
-            drawFinderPattern(moduleSize * (moduleCount - 7), 0f)
-            drawFinderPattern(0f, moduleSize * (moduleCount - 7))
-
-            // Dải đồng bộ Timing Patterns
-            for (i in 8 until (moduleCount - 8)) {
-                if (i % 2 == 0) {
-                    drawRect(color = Color.Black, topLeft = Offset(i * moduleSize, 6 * moduleSize), size = Size(moduleSize, moduleSize))
-                    drawRect(color = Color.Black, topLeft = Offset(6 * moduleSize, i * moduleSize), size = Size(moduleSize, moduleSize))
-                }
-            }
-
-            // Dữ liệu ma trận biến đổi dựa trên Hash của TOTP Token
-            val hashBytes = tokenHash.toByteArray()
-            var byteIdx = 0
-            for (row in 0 until moduleCount) {
-                for (col in 0 until moduleCount) {
-                    val inTopLeft = row < 8 && col < 8
-                    val inTopRight = row < 8 && col >= (moduleCount - 8)
-                    val inBottomLeft = row >= (moduleCount - 8) && col < 8
-                    val inCenterLogo = row in 10..14 && col in 10..14
-                    val isTiming = (row == 6 && col in 8 until (moduleCount - 8)) || (col == 6 && row in 8 until (moduleCount - 8))
-
-                    if (!inTopLeft && !inTopRight && !inBottomLeft && !inCenterLogo && !isTiming) {
-                        val b = if (hashBytes.isNotEmpty()) hashBytes[byteIdx % hashBytes.size].toInt() else 0
-                        byteIdx++
-                        val isDark = ((b xor (row * 31 + col * 17)) and 1) == 1
-                        if (isDark) {
-                            drawRect(
-                                color = Color.Black,
-                                topLeft = Offset(col * moduleSize, row * moduleSize),
-                                size = Size(moduleSize * 0.95f, moduleSize * 0.95f)
-                            )
-                        }
-                    }
-                }
+private fun DynamicQrMatrixGraphic(qrPayload: String, modifier: Modifier = Modifier) {
+    val bitmap = remember(qrPayload) {
+        val matrix = QRCodeWriter().encode(
+            qrPayload,
+            BarcodeFormat.QR_CODE,
+            320,
+            320,
+            mapOf(EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M, EncodeHintType.MARGIN to 2)
+        )
+        val pixels = IntArray(matrix.width * matrix.height)
+        for (row in 0 until matrix.height) {
+            for (column in 0 until matrix.width) {
+                pixels[row * matrix.width + column] = if (matrix[column, row])
+                    android.graphics.Color.BLACK else android.graphics.Color.WHITE
             }
         }
-
-        // Logo trung tâm: Hộp bo góc nền đen chứa biểu tượng QR màu xanh ngọc
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0C1322))
-                .border(1.2.dp, EmeraldPrimary.copy(alpha = 0.6f), RoundedCornerShape(8.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.QrCode,
-                contentDescription = null,
-                tint = EmeraldPrimary,
-                modifier = Modifier.size(22.dp)
-            )
-        }
+        android.graphics.Bitmap.createBitmap(matrix.width, matrix.height, android.graphics.Bitmap.Config.ARGB_8888)
+            .apply { setPixels(pixels, 0, matrix.width, 0, 0, matrix.width, matrix.height) }
+            .asImageBitmap()
     }
+    Image(bitmap = bitmap, contentDescription = "Dynamic QR", modifier = modifier)
 }
-
 /**
  * MÀN HÌNH ĐỘC LẬP: QR CHECKING VÉ ĐIỆN TỬ (Dynamic QR Pass Full Screen)
  */

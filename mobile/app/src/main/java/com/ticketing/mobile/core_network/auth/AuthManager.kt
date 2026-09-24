@@ -1,6 +1,7 @@
 package com.ticketing.mobile.core_network.auth
 
-import com.google.firebase.auth.FirebaseAuth
+import android.content.Context
+import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,85 +20,72 @@ sealed interface AuthState {
 
 /**
  * Trình quản lý xác thực và danh tính người dùng trên thiết bị di động.
- * Tích hợp chặt chẽ với Firebase Authentication.
+ * Lưu trữ trạng thái phiên đăng nhập bền vững qua SharedPreferences,
+ * giúp người dùng không bị mất phiên khi đóng ứng dụng.
  */
 class AuthManager private constructor() {
 
-    private val _authState = MutableStateFlow<AuthState>(initInitialAuthState())
+    private var prefs: SharedPreferences? = null
+
+    private val _authState = MutableStateFlow<AuthState>(AuthState.Unauthenticated)
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
 
-    private fun initInitialAuthState(): AuthState {
-        return try {
-            val user = FirebaseAuth.getInstance().currentUser
-            if (user != null) {
-                AuthState.Authenticated(
-                    userId = user.uid,
-                    email = user.email ?: "${user.uid}@dynamic-qr.vn",
-                    displayName = user.displayName ?: "Khán Giả",
-                    token = null,
-                    isDemo = false
-                )
-            } else {
-                AuthState.Unauthenticated
-            }
-        } catch (e: Exception) {
-            AuthState.Unauthenticated
+    fun init(context: Context) {
+        if (prefs == null) {
+            prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            loadSession()
         }
     }
 
-    fun loginWithDemoUser() {
-        _authState.value = AuthState.Authenticated(
-            userId = DEMO_USER_ID,
-            email = "demo@dynamic-qr.vn",
-            displayName = "Khán Giả (Demo)",
-            token = null,
-            isDemo = true
-        )
+    private fun loadSession() {
+        val sp = prefs ?: return
+        val isAuthenticated = sp.getBoolean(KEY_IS_AUTHENTICATED, false)
+        if (isAuthenticated) {
+            val userId = sp.getString(KEY_USER_ID, null)
+            val email = sp.getString(KEY_EMAIL, "") ?: ""
+            val displayName = sp.getString(KEY_DISPLAY_NAME, "") ?: ""
+            val token = sp.getString(KEY_TOKEN, null)
+            if (!userId.isNullOrBlank() && !token.isNullOrBlank()) {
+                _authState.value = AuthState.Authenticated(
+                    userId = userId,
+                    email = email,
+                    displayName = displayName,
+                    token = token,
+                    isDemo = false
+                )
+            } else {
+                sp.edit().clear().apply()
+            }
+        }
     }
 
-    fun loginWithEmail(email: String, name: String) {
-        val uid = java.util.UUID.randomUUID().toString()
-        _authState.value = AuthState.Authenticated(
-            userId = uid,
-            email = email,
-            displayName = name.ifBlank { email.substringBefore("@") },
-            token = "jwt-mock-$uid",
-            isDemo = false
-        )
-    }
-
-    fun loginWithFirebase(userId: String, email: String, displayName: String, idToken: String) {
+    fun login(userId: String, email: String, displayName: String, token: String) {
         _authState.value = AuthState.Authenticated(
             userId = userId,
             email = email,
             displayName = displayName,
-            token = idToken,
+            token = token,
             isDemo = false
         )
-    }
-
-    fun setBearerToken(token: String) {
-        val current = _authState.value
-        if (current is AuthState.Authenticated) {
-            _authState.value = current.copy(token = token)
-        }
+        prefs?.edit()
+            ?.putBoolean(KEY_IS_AUTHENTICATED, true)
+            ?.putString(KEY_USER_ID, userId)
+            ?.putString(KEY_EMAIL, email)
+            ?.putString(KEY_DISPLAY_NAME, displayName)
+            ?.putString(KEY_TOKEN, token)
+            ?.putBoolean(KEY_IS_DEMO, false)
+            ?.apply()
     }
 
     fun logout() {
-        try {
-            FirebaseAuth.getInstance().signOut()
-        } catch (ignored: Exception) {}
         _authState.value = AuthState.Unauthenticated
+        prefs?.edit()?.clear()?.apply()
     }
 
     fun getCurrentUserId(): String {
         return when (val state = _authState.value) {
             is AuthState.Authenticated -> state.userId
-            else -> try {
-                FirebaseAuth.getInstance().currentUser?.uid ?: DEMO_USER_ID
-            } catch (e: Exception) {
-                DEMO_USER_ID
-            }
+            else -> ""
         }
     }
 
@@ -109,7 +97,13 @@ class AuthManager private constructor() {
     }
 
     companion object {
-        const val DEMO_USER_ID = "11111111-2222-3333-4444-555555555555"
+        private const val PREFS_NAME = "secure_tix_auth_prefs"
+        private const val KEY_IS_AUTHENTICATED = "is_authenticated"
+        private const val KEY_USER_ID = "user_id"
+        private const val KEY_EMAIL = "email"
+        private const val KEY_DISPLAY_NAME = "display_name"
+        private const val KEY_TOKEN = "bearer_token"
+        private const val KEY_IS_DEMO = "is_demo"
 
         val instance: AuthManager by lazy { AuthManager() }
     }

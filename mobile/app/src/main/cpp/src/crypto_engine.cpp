@@ -169,14 +169,15 @@ std::string toBase64Url(const std::vector<uint8_t>& data) {
 
     if (i < length) {
         uint32_t octet_a = data[i++];
-        uint32_t octet_b = (i < length) ? data[i++] : 0;
+        bool hasSecondByte = i < length;
+        uint32_t octet_b = hasSecondByte ? data[i++] : 0;
 
         uint32_t triple = (octet_a << 16) | (octet_b << 8);
 
         result.push_back(BASE64URL_CHARS[(triple >> 18) & 0x3F]);
         result.push_back(BASE64URL_CHARS[(triple >> 12) & 0x3F]);
 
-        if (i == length + 1) { // Còn dư 2 bytes
+        if (hasSecondByte) {
             result.push_back(BASE64URL_CHARS[(triple >> 6) & 0x3F]);
         }
     }
