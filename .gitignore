@@ -18,7 +18,8 @@ Desktop.ini
 *.log
 
 # Documentation & Internal Design Specs
-docs/
+docs/*
+!docs/showcase/
 
 # Firebase & Cloud Credentials
 *google-services.json
