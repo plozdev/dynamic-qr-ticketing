@@ -40,7 +40,7 @@ Migration V13 tạo `demo01`–`demo12` với mật khẩu `12345678`. Nếu mu�
 
 1. Push nhánh chứa `.github/workflows/frontend-pages.yml` và `frontend/` lên GitHub.
 2. Vào **Repository → Settings → Pages → Build and deployment**, chọn **GitHub Actions**. [Hướng dẫn Pages workflow](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
-3. Vào **Settings → Secrets and variables → Actions → Variables**, tạo biến `VITE_API_BASE_URL` = `https://CLOUD_RUN_URL/api/v1`. Đây là URL public, **không** đặt DB password ở đây.
+3. Vào **Settings → Secrets and variables → Actions → Variables**, tạo biến `VITE_API_BASE_URL` = `https://CLOUD_RUN_URL/api/v1`. Đây là URL public, **không** đặt DB password ở đây. Workflow sẽ bỏ qua deploy nếu biến này chưa được thiết lập.
 4. Push thay đổi vào nhánh `dev` hoặc `main` để chạy workflow **Deploy frontend to GitHub Pages**. Nút chạy thủ công (`workflow_dispatch`) khả dụng sau khi workflow có trên nhánh mặc định `main`. FE sẽ ở `https://plozdev.github.io/dynamic-qr-ticketing/` nếu GitHub Pages của repository được bật.
 
 Vite được cấu hình `base=/dynamic-qr-ticketing/` khi build trên Pages; local vẫn dùng `/`. Nếu đổi tên repository hoặc dùng custom domain, sửa `base` trong `frontend/vite.config.ts`. [Hướng dẫn Vite + GitHub Pages](https://vite.dev/guide/static-deploy).
