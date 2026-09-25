@@ -144,3 +144,5 @@ npm run build
 ```
 
 Android trên Windows: chạy `.\gradlew.bat :app:assembleDebug` trong `mobile/`.
+
+APK demo đã build: [CyberPass-1.0-debug.apk](mobile/releases/CyberPass-1.0-debug.apk). Xem [hướng dẫn triển khai](DEPLOYMENT.md) để đưa BE/DB lên GCP, FE lên GitHub Pages và cấu hình API trên Android.
