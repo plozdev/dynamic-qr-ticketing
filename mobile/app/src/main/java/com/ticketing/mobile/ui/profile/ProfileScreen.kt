@@ -100,7 +100,7 @@ fun ProfileScreen(
         is AuthState.Authenticated -> ProfileData(
             userId = state.userId,
             email = state.email,
-            displayName = state.displayName.ifBlank { "Người dùng SecureTix" },
+            displayName = state.displayName.ifBlank { "Người dùng CyberPass" },
             isDemo = state.isDemo
         )
         else -> ProfileData(
@@ -437,7 +437,7 @@ fun ProfileScreenContent(
                 },
                 text = {
                     Text(
-                        text = "Bạn có chắc chắn muốn đăng xuất khỏi SecureTix không? Dữ liệu phiên và cache vé trên thiết bị sẽ được làm mới.",
+                        text = "Bạn có chắc chắn muốn đăng xuất khỏi CyberPass không? Dữ liệu phiên và cache vé trên thiết bị sẽ được làm mới.",
                         color = TextMediumEmphasis,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center

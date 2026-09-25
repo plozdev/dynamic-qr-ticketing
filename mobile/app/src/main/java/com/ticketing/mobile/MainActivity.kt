@@ -274,7 +274,7 @@ fun MainActivityMyTicketsPreview() {
                         venue = "SVĐ Mỹ Đình, Hà Nội",
                         dateDisplay = "24/10/2026 • 19:30",
                         seatNumber = "GA-VIP-01",
-                        attendeeName = "Khán Giả SecureTix",
+                        attendeeName = "Khán Giả CyberPass",
                         tierName = "VIP Standing",
                         status = UserTicketCheckInStatus.READY_TO_CHECK_IN,
                         gateInfo = "CỔNG 02",

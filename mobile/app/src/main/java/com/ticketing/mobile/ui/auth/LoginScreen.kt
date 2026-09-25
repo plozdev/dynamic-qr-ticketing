@@ -61,6 +61,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -76,6 +77,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -124,7 +126,7 @@ private data class AuthResponse(
 )
 
 /**
- * Màn hình đăng nhập SecureTix với giao diện Obsidian Neon.
+ * Màn hình đăng nhập CyberPass với giao diện Obsidian Neon.
  * Tích hợp hiệu ứng chuyển cảnh thành công mượt mà (Success Celebration Animation),
  * đưa logo vào trung tâm cùng huy hiệu xác thực trước khi chuyển vào kho vé.
  */
@@ -133,8 +135,13 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val preferences = remember(context) {
+        context.getSharedPreferences("secure_tix_prefs", android.content.Context.MODE_PRIVATE)
+    }
+    var serverUrl by remember { mutableStateOf(preferences.getString("custom_server_url", "").orEmpty()) }
     val scope = rememberCoroutineScope()
-    val apiClient = remember { OkHttpApiClient() }
+    val apiClient = remember(serverUrl) { OkHttpApiClient() }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isSuccess by remember { mutableStateOf(false) }
@@ -145,6 +152,14 @@ fun LoginScreen(
         errorMessage = errorMessage,
         isSuccess = isSuccess,
         successAccountName = successAccountName,
+        serverUrl = serverUrl,
+        onServerUrlSaved = { value ->
+            preferences.edit().putString("custom_server_url", value).apply()
+            OkHttpApiClient.customBaseUrl = value.ifBlank { null }
+            OkHttpApiClient.activeBaseUrl = null
+            serverUrl = value
+            errorMessage = null
+        },
         onSubmit = { form ->
             if (!isLoading && !isSuccess) {
                 isLoading = true
@@ -215,12 +230,17 @@ fun LoginScreenContent(
     onSubmit: (AuthForm) -> Unit,
     isSuccess: Boolean = false,
     successAccountName: String = "",
+    serverUrl: String = "",
+    onServerUrlSaved: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
+    var showServerSettings by rememberSaveable { mutableStateOf(false) }
+    var serverUrlInput by rememberSaveable { mutableStateOf(serverUrl) }
+    var serverUrlError by remember { mutableStateOf<String?>(null) }
 
     // Hiệu ứng nhịp thở cho vầng sáng Logo
     val infiniteTransition = rememberInfiniteTransition(label = "pulse_glow")
@@ -336,7 +356,7 @@ fun LoginScreenContent(
                     ) {
                         Image(
                             painter = painterResource(R.drawable.app_logo),
-                            contentDescription = "SecureTix Logo",
+                            contentDescription = "CyberPass Logo",
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(RoundedCornerShape(20.dp))
@@ -348,7 +368,7 @@ fun LoginScreenContent(
 
                 // Tiêu đề & Subtitle
                 Text(
-                    text = "SecureTix",
+                    text = "CyberPass",
                     color = TextHighEmphasis,
                     fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
@@ -496,6 +516,47 @@ fun LoginScreenContent(
                     }
                 }
 
+                Spacer(Modifier.height(12.dp))
+
+                TextButton(onClick = { showServerSettings = !showServerSettings }) {
+                    Text("Cấu hình địa chỉ API", color = CyanSecondary)
+                }
+                AnimatedVisibility(visible = showServerSettings) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = serverUrlInput,
+                            onValueChange = {
+                                serverUrlInput = it
+                                serverUrlError = null
+                            },
+                            label = { Text("Địa chỉ Backend") },
+                            placeholder = { Text("https://example.run.app") },
+                            supportingText = {
+                                Text(serverUrlError ?: "Để trống để dùng máy chủ mặc định. Không cần nhập /api/v1.")
+                            },
+                            isError = serverUrlError != null,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Button(
+                            onClick = {
+                                val value = serverUrlInput.trim().trimEnd('/')
+                                if (value.isNotBlank() &&
+                                    (!value.startsWith("https://") && !value.startsWith("http://") || value.contains(' '))) {
+                                    serverUrlError = "Nhập URL bắt đầu bằng https:// hoặc http://"
+                                } else {
+                                    onServerUrlSaved(value)
+                                    showServerSettings = false
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Lưu địa chỉ API")
+                        }
+                    }
+                }
+
                 Spacer(Modifier.height(18.dp))
 
                 // Điều khoản bảo mật
@@ -505,7 +566,7 @@ fun LoginScreenContent(
                         withStyle(style = SpanStyle(color = EmeraldPrimary, fontWeight = FontWeight.SemiBold)) {
                             append("Chính sách & Bảo mật")
                         }
-                        append(" SecureTix.")
+                        append(" CyberPass.")
                     },
                     fontSize = 11.sp,
                     color = TextMuted,

@@ -88,13 +88,13 @@ data class TopBarCategoryChip(
 )
 
 /**
- * Logo SecureTix với viền sáng neon và biểu tượng Dynamic Shield.
+ * Logo CyberPass với viền sáng neon và biểu tượng Dynamic Shield.
  */
 @Composable
-fun SecureTixLogo(modifier: Modifier = Modifier) {
+fun CyberPassLogo(modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(id = R.drawable.app_logo),
-        contentDescription = "SecureTix Logo",
+        contentDescription = "CyberPass Logo",
         modifier = modifier
             .size(38.dp)
             .clip(RoundedCornerShape(8.dp))
@@ -150,10 +150,10 @@ fun CategoryChipItem(
 }
 
 /**
- * Thanh Top Bar cao cấp SecureTix Obsidian Pass chuẩn Prototype.
+ * Thanh Top Bar CyberPass.
  */
 @Composable
-fun SecureTixTopBar(
+fun CyberPassTopBar(
     modifier: Modifier = Modifier,
     subtitle: String = "TẤT CẢ SỰ KIỆN",
     searchQuery: String = "",
@@ -185,11 +185,11 @@ fun SecureTixTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.weight(1f, fill = false)
             ) {
-                SecureTixLogo()
+                CyberPassLogo()
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = "SecureTix",
+                        text = "CyberPass",
                         fontWeight = FontWeight.Bold,
                         fontSize = 19.sp,
                         color = TextHighEmphasis,
@@ -460,7 +460,7 @@ fun MyTicketsContent(
         modifier = modifier.fillMaxSize(),
         containerColor = ObsidianVoid,
         topBar = {
-            SecureTixTopBar(
+            CyberPassTopBar(
                 subtitle = subtitle,
                 searchQuery = searchQuery,
                 onSearchQueryChange = onSearchQueryChange,
@@ -852,11 +852,11 @@ fun UserTicketCardLockedPreview() {
 }
 
 
-@Preview(name = "SecureTix Top Bar Preview", showBackground = true, backgroundColor = 0xFF0C1322)
+@Preview(name = "CyberPass Top Bar Preview", showBackground = true, backgroundColor = 0xFF0C1322)
 @Composable
-fun SecureTixTopBarPreview() {
+fun CyberPassTopBarPreview() {
     DynamicQRTicketingTheme {
-        SecureTixTopBar(
+        CyberPassTopBar(
             subtitle = "TẤT CẢ SỰ KIỆN",
             searchQuery = "",
             onSearchQueryChange = {},

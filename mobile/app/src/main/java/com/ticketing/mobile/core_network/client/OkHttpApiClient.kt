@@ -239,7 +239,8 @@ class OkHttpApiClient(
             val custom = customBaseUrl?.trim()?.removeSuffix("/")
             return if (!custom.isNullOrBlank()) {
                 val fullCustom = if (custom.endsWith("/api/v1")) custom else "$custom/api/v1"
-                (listOf(fullCustom) + baseList).distinct()
+                // A user-selected backend must never silently fall back to a different server.
+                listOf(fullCustom)
             } else {
                 baseList
             }
