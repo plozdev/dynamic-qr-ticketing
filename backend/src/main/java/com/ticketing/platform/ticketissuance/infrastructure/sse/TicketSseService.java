@@ -7,8 +7,10 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -103,41 +105,19 @@ public class TicketSseService {
                 "timestamp", occurredAt != null ? occurredAt.getEpochSecond() : Instant.now().getEpochSecond()
         );
 
+        // Một kết nối theo vé cũng được đăng ký theo user; gộp trước khi gửi để tránh lặp.
+        Set<SseEmitter> recipients = new LinkedHashSet<>();
+        addEmitters(recipients, userEmitters, userId);
+        addEmitters(recipients, ticketEmitters, ticketId);
+
         int sentCount = 0;
-
-        // 1. Gửi cho tất cả kết nối của User này
-        if (userId != null) {
-            CopyOnWriteArrayList<SseEmitter> emitters = userEmitters.get(userId);
-            if (emitters != null) {
-                for (SseEmitter emitter : emitters) {
-                    try {
-                        emitter.send(SseEmitter.event()
-                                .name("ticket-update")
-                                .data(payload));
-                        sentCount++;
-                    } catch (Exception e) {
-                        emitter.complete();
-                        emitters.remove(emitter);
-                    }
-                }
-            }
-        }
-
-        // 2. Gửi cho kết nối theo ticketId (nếu có kết nối độc lập)
-        if (ticketId != null) {
-            CopyOnWriteArrayList<SseEmitter> emitters = ticketEmitters.get(ticketId);
-            if (emitters != null) {
-                for (SseEmitter emitter : emitters) {
-                    try {
-                        emitter.send(SseEmitter.event()
-                                .name("ticket-update")
-                                .data(payload));
-                        sentCount++;
-                    } catch (Exception e) {
-                        emitter.complete();
-                        emitters.remove(emitter);
-                    }
-                }
+        for (SseEmitter emitter : recipients) {
+            try {
+                emitter.send(SseEmitter.event().name("ticket-update").data(payload));
+                sentCount++;
+            } catch (Exception e) {
+                emitter.complete();
+                removeFromAllIndexes(emitter);
             }
         }
 
@@ -150,22 +130,38 @@ public class TicketSseService {
      */
     @Scheduled(fixedRate = 25000)
     public void sendHeartbeat() {
-        sendPingToMap(userEmitters);
-        sendPingToMap(ticketEmitters);
+        Set<SseEmitter> recipients = new LinkedHashSet<>();
+        userEmitters.values().forEach(recipients::addAll);
+        ticketEmitters.values().forEach(recipients::addAll);
+        for (SseEmitter emitter : recipients) {
+            try {
+                emitter.send(SseEmitter.event().comment("ping"));
+            } catch (Exception e) {
+                emitter.complete();
+                removeFromAllIndexes(emitter);
+            }
+        }
     }
 
-    private void sendPingToMap(ConcurrentHashMap<UUID, CopyOnWriteArrayList<SseEmitter>> map) {
-        map.forEach((key, emitters) -> {
-            for (SseEmitter emitter : emitters) {
-                try {
-                    emitter.send(SseEmitter.event().comment("ping"));
-                } catch (Exception e) {
-                    emitter.complete();
-                    emitters.remove(emitter);
-                }
-            }
+    private void addEmitters(Set<SseEmitter> recipients,
+                             ConcurrentHashMap<UUID, CopyOnWriteArrayList<SseEmitter>> index,
+                             UUID id) {
+        if (id == null) return;
+        List<SseEmitter> emitters = index.get(id);
+        if (emitters != null) recipients.addAll(emitters);
+    }
+
+    private void removeFromAllIndexes(SseEmitter emitter) {
+        removeFromIndex(userEmitters, emitter);
+        removeFromIndex(ticketEmitters, emitter);
+    }
+
+    private void removeFromIndex(ConcurrentHashMap<UUID, CopyOnWriteArrayList<SseEmitter>> index,
+                                 SseEmitter emitter) {
+        index.forEach((key, emitters) -> {
+            emitters.remove(emitter);
             if (emitters.isEmpty()) {
-                map.remove(key, emitters);
+                index.remove(key, emitters);
             }
         });
     }
