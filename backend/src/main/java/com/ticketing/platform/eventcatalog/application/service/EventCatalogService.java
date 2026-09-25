@@ -52,9 +52,24 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
                 command.endDateTime()
         );
 
+        event.configureListing(command.basePrice(), command.bannerUrl(), command.totalTickets());
+
+        if (command.publishNow() == null || command.publishNow()) {
+            event.publish();
+        }
+        eventRepository.save(event);
+        if (event.getStatus() == EventStatus.PUBLISHED) {
+            eventPublisher.publishEvent(new EventPublishedIntegrationEvent(event.getId(), event.getName(), java.time.Instant.now()));
+        }
+        return toResponse(event);
+    }
+
+    public EventResponse publishEvent(UUID eventId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new EntityNotFoundException("Event", eventId));
         event.publish();
         eventRepository.save(event);
-        eventPublisher.publishEvent(new EventPublishedIntegrationEvent(event.getId(), event.getName(), java.time.Instant.now()));
+        eventPublisher.publishEvent(new EventPublishedIntegrationEvent(event.getId(), event.getName(), Instant.now()));
         return toResponse(event);
     }
 
@@ -107,6 +122,11 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<EventResponse> getAllEvents() {
+        return eventRepository.findAll().stream().map(this::toResponse).toList();
+    }
+
     // --- Boundary Service (EventCatalogExportedService implementation) ---
 
     @Override
@@ -153,6 +173,7 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
                 event.getName(),
                 event.getDescription(),
                 event.getVenue() != null ? event.getVenue().name() : null,
+                event.getVenue() != null && event.getVenue().entryGates() != null ? event.getVenue().entryGates() : java.util.List.of(),
                 event.getStartDateTime(),
                 event.getEndDateTime(),
                 event.getStatus().name(),

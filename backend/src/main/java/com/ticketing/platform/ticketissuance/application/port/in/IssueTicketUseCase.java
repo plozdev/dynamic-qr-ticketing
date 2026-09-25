@@ -7,4 +7,5 @@ import java.util.UUID;
 public interface IssueTicketUseCase {
 
     UUID issueTicket(IssueTicketCommand command);
+    java.util.List<UUID> issueTickets(IssueTicketCommand command, int quantity);
 }

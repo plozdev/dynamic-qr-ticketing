@@ -9,6 +9,7 @@ public record EventResponse(
         String name,
         String description,
         String venueName,
+        java.util.List<String> venueGates,
         Instant startDateTime,
         Instant endDateTime,
         String status,
@@ -31,7 +32,7 @@ public record EventResponse(
             Instant endDateTime,
             String status
     ) {
-        this(id, name, description, venueName, startDateTime, endDateTime, status,
+        this(id, name, description, venueName, java.util.List.of(), startDateTime, endDateTime, status,
                 null, "Âm nhạc & Concert", new BigDecimal("450000"), 1000, 850, 85, false, 120, false);
     }
 }

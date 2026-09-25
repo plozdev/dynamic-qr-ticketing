@@ -34,6 +34,11 @@ public class EventController {
 
     public record CheckInControlRequest(boolean enabled) {}
 
+    @PutMapping("/{id}/publish")
+    public ResponseEntity<EventResponse> publish(@PathVariable UUID id) {
+        return ResponseEntity.ok(eventCatalogService.publishEvent(id));
+    }
+
     @PutMapping("/{id}/check-in")
     public ResponseEntity<EventResponse> setCheckInEnabled(
             @PathVariable UUID id, @RequestBody CheckInControlRequest request) {
@@ -48,14 +53,20 @@ public class EventController {
 
     @GetMapping
     public ResponseEntity<java.util.List<EventResponse>> getEvents(
-            @org.springframework.web.bind.annotation.RequestParam(required = false) String category,
-            @org.springframework.web.bind.annotation.RequestParam(required = false) com.ticketing.platform.eventcatalog.domain.model.EventStatus status) {
-        return ResponseEntity.ok(getEventQuery.getEvents(category, status));
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String category) {
+        return ResponseEntity.ok(getEventQuery.getEvents(category,
+                com.ticketing.platform.eventcatalog.domain.model.EventStatus.PUBLISHED));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<EventResponse> getEventById(@PathVariable UUID id) {
-        return ResponseEntity.status(HttpStatus.OK)
-                            .body(getEventQuery.getEventById(id));
+        EventResponse event = getEventQuery.getEventById(id);
+        boolean admin = com.ticketing.platform.shared.security.SecurityUtils.getCurrentPrincipal()
+                .map(principal -> principal.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority())))
+                .orElse(false);
+        if (!admin && !"PUBLISHED".equals(event.status())) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Event not found");
+        }
+        return ResponseEntity.ok(event);
     }
 }

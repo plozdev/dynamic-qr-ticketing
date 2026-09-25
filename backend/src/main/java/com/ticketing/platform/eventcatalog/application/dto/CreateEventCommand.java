@@ -10,5 +10,9 @@ public record CreateEventCommand(
         String venueAddress,
         List<String> venueGates,
         Instant startDateTime,
-        Instant endDateTime
+        Instant endDateTime,
+        Boolean publishNow,
+        java.math.BigDecimal basePrice,
+        String bannerUrl,
+        Integer totalTickets
 ) {}

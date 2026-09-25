@@ -60,6 +60,7 @@ public class EventRepositoryAdapter implements EventRepository {
                     .description(event.getDescription())
                     .venueName(v != null ? v.name() : null)
                     .venueAddress(v != null ? v.address() : null)
+                    .venueGates(v != null && v.entryGates() != null ? v.entryGates() : Collections.emptyList())
                     .startDateTime(event.getStartDateTime())
                     .endDateTime(event.getEndDateTime())
                     .status(event.getStatus())
@@ -77,7 +78,8 @@ public class EventRepositoryAdapter implements EventRepository {
     private Event toDomain(EventJpaEntity entity) {
         Venue venue = null;
         if (entity.getVenueName() != null || entity.getVenueAddress() != null) {
-            venue = new Venue(null, entity.getVenueName(), entity.getVenueAddress(), Collections.emptyList());
+            venue = new Venue(null, entity.getVenueName(), entity.getVenueAddress(),
+                    entity.getVenueGates() != null ? entity.getVenueGates() : Collections.emptyList());
         }
         Event event = new Event(
                 entity.getId(),

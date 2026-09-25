@@ -41,9 +41,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/signup", "/api/v1/auth/login").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.POST,
-                                "/api/v1/events/*/claim", "/api/v1/tickets/claim", "/api/v1/tickets/issue").denyAll()
+                                "/api/v1/events/*/claim", "/api/v1/tickets/claim").denyAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/tickets/issue").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/events").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/v1/events/*/check-in").hasRole("ADMIN")
+                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/v1/events/*/publish").hasRole("ADMIN")
                         .requestMatchers(org.springframework.http.HttpMethod.POST, "/api/v1/gates/*/validate").hasRole("ADMIN")
                         .requestMatchers("/api/v1/audit-logs/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/events/**").permitAll()

@@ -57,21 +57,23 @@ public class TicketIssuanceService implements IssueTicketUseCase, ClaimTicketUse
 
     @Override
     public UUID issueTicket(IssueTicketCommand command) {
-        if (!eventCatalogService.isEventActive(command.eventId())) {
-            throw new DomainException("Cannot issue ticket because event is not active: " + command.eventId());
+        return issueTickets(command, 1).getFirst();
+    }
+
+    @Override
+    public List<UUID> issueTickets(IssueTicketCommand command, int quantity) {
+        if (quantity < 1 || quantity > 10) {
+            throw new DomainException("Quantity must be between 1 and 10");
         }
-
-        Ticket ticket = Ticket.issue(command.eventId(), command.userId(), command.categoryName());
-        ticketRepository.save(ticket);
-
-        eventPublisher.publishEvent(new TicketIssuedIntegrationEvent(
-                ticket.getId().value(),
-                ticket.getEventId(),
-                ticket.getUserId(),
-                ticket.getCategoryName()
-        ));
-
-        return ticket.getId().value();
+        if (userExportedService.getUserById(command.userId()).isEmpty()) {
+            throw new EntityNotFoundException("User", command.userId());
+        }
+        List<UUID> ids = new java.util.ArrayList<>(quantity);
+        for (int index = 0; index < quantity; index++) {
+            ids.add(claimTicket(new ClaimTicketCommand(command.eventId(), command.userId(),
+                    command.categoryName(), null, null)).ticketId());
+        }
+        return ids;
     }
 
     @Override

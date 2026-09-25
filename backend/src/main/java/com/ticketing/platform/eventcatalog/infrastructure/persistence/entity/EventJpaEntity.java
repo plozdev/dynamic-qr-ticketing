@@ -3,6 +3,10 @@ package com.ticketing.platform.eventcatalog.infrastructure.persistence.entity;
 import com.ticketing.platform.eventcatalog.domain.model.EventStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
@@ -40,6 +44,11 @@ public class EventJpaEntity {
 
     @Column(name = "venue_address")
     private String venueAddress;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "event_venue_gates", joinColumns = @JoinColumn(name = "event_id"))
+    @Column(name = "gate_name", nullable = false)
+    private java.util.List<String> venueGates;
 
     @Column(name = "start_date_time", nullable = false)
     private Instant startDateTime;

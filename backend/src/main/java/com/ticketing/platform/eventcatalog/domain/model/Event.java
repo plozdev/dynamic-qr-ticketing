@@ -77,7 +77,23 @@ public class Event implements AggregateRoot<UUID> {
         if (startDateTime.isAfter(endDateTime)) {
             throw new DomainException("Event date must precede end date");
         }
-        return new Event(UUID.randomUUID(), name, description, venue, startDateTime, endDateTime, EventStatus.DRAFT, new ArrayList<>());
+        return new Event(UUID.randomUUID(), name, description, venue, startDateTime, endDateTime,
+                EventStatus.DRAFT, new ArrayList<>(), null, "Âm nhạc & Concert",
+                new java.math.BigDecimal("450000"), 1000, 1000, false, 120);
+    }
+
+    public void configureListing(java.math.BigDecimal price, String imageUrl, Integer capacity) {
+        if (status != EventStatus.DRAFT) throw new DomainException("Only draft events can be configured");
+        if (price != null) {
+            if (price.signum() < 0) throw new DomainException("Ticket price must not be negative");
+            this.basePrice = price;
+        }
+        if (imageUrl != null) this.bannerUrl = imageUrl;
+        if (capacity != null) {
+            if (capacity < 1) throw new DomainException("Capacity must be positive");
+            this.totalTickets = capacity;
+            this.availableTickets = capacity;
+        }
     }
 
     public void publish() {

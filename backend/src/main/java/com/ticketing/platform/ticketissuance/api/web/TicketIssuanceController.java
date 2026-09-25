@@ -19,6 +19,9 @@ import com.ticketing.platform.ticketissuance.application.port.in.IssueTicketUseC
 import com.ticketing.platform.ticketissuance.application.port.in.SyncTicketUseCase;
 import com.ticketing.platform.ticketissuance.infrastructure.sse.TicketSseService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -45,6 +48,9 @@ import java.util.UUID;
 @RequiredArgsConstructor 
 public class TicketIssuanceController {
 
+    public record BookTicketRequest(@jakarta.validation.constraints.NotNull UUID eventId,
+                                    @NotBlank String categoryName, @Min(1) @Max(10) int quantity) {}
+
     private final IssueTicketUseCase issueTicketUseCase;
     private final ClaimTicketUseCase claimTicketUseCase;
     private final GenerateDynamicQrUseCase generateDynamicQrUseCase;
@@ -70,9 +76,21 @@ public class TicketIssuanceController {
 
     @PostMapping("/issue")
     public ResponseEntity<Map<String, Object>> issueTicket(@Valid @RequestBody IssueTicketRequest request) {
-        UUID ticketId = issueTicketUseCase.issueTicket(new com.ticketing.platform.ticketissuance.application.dto.IssueTicketCommand(
-                request.eventId(), request.userId(), request.categoryName()));
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("ticketId", ticketId));
+        List<UUID> ticketIds = issueTicketUseCase.issueTickets(new com.ticketing.platform.ticketissuance.application.dto.IssueTicketCommand(
+                request.eventId(), request.userId(), request.categoryName()), request.effectiveQuantity());
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("ticketIds", ticketIds, "ticketId", ticketIds.getFirst()));
+    }
+
+    @PostMapping("/book")
+    public ResponseEntity<Map<String, Object>> bookMyTickets(@Valid @RequestBody BookTicketRequest request) {
+        if (!List.of("Early Bird", "Standard GA", "VIP").contains(request.categoryName())) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported ticket category");
+        }
+        // The authenticated identity determines ownership; the client cannot choose another user.
+        UUID userId = resolveUserId(null);
+        List<UUID> ticketIds = issueTicketUseCase.issueTickets(new com.ticketing.platform.ticketissuance.application.dto.IssueTicketCommand(
+                request.eventId(), userId, request.categoryName()), request.quantity());
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("ticketIds", ticketIds));
     }
 
     @GetMapping("/{id}/dynamic-qr")
