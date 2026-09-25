@@ -1,318 +1,459 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Event, Ticket, UserAccount } from './types';
-import { 
-  fetchEvents, 
-  fetchUserTickets, 
+import { useCallback, useEffect, useState } from "react";
+import {
+  Activity,
+  CalendarDays,
+  Compass,
+  LogOut,
+  ScanLine,
+  ShieldCheck,
+  Ticket,
+  Users,
+} from "lucide-react";
+import type {
+  AuthSession,
+  Event,
+  Ticket as TicketData,
+  UserAccount,
+} from "./types";
+import {
+  fetchAdminEvents,
+  fetchEvents,
+  fetchMyTickets,
   fetchUsers,
-  loginAdmin,
-  logoutAdmin,
-  restoreAdminSession,
-  API_BASE_URL,
-  getApiErrorMessage 
-} from './services/api';
-import { ToastProvider, useToast } from './context/ToastContext';
-import { Header } from './components/common/Header';
-import { Sidebar } from './components/common/Sidebar';
-import type { TabType } from './components/common/Sidebar';
+  getApiErrorMessage,
+  loginSession,
+  logoutSession,
+  restoreSession,
+  signupSession,
+} from "./services/api";
+import { ToastProvider, useToast } from "./context/ToastContext";
+import { Marketplace } from "./components/marketplace/Marketplace";
+import { Wallet } from "./components/wallet/Wallet";
+import { AdminCatalog } from "./components/admin/AdminCatalog";
+import { GateDashboard } from "./components/admin/GateDashboard";
+import { AdminTickets } from "./components/admin/AdminTickets";
+import { GateScannerTester } from "./components/gate/GateScannerTester";
 
-import { EventsTab } from './components/events/EventsTab';
-import { TicketsTab } from './components/tickets/TicketsTab';
-import { UsersTab } from './components/users/UsersTab';
-import { GateScannerTester } from './components/gate/GateScannerTester';
+type Page =
+  | "marketplace"
+  | "wallet"
+  | "catalog"
+  | "operations"
+  | "users"
+  | "tickets"
+  | "scanner";
 
-function MainPortal({ onLogout }: { onLogout: () => void }) {
-  const { error: toastError, info } = useToast();
+function AuthPage({
+  onAuthenticated,
+}: {
+  onAuthenticated: (session: AuthSession) => void;
+}) {
+  const [signup, setSignup] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [working, setWorking] = useState(false);
+  const [problem, setProblem] = useState("");
+  return (
+    <main className="auth-page">
+      <div className="auth-glow" />
+      <section className="auth-card">
+        <div className="brand">
+          <span className="brand-mark">
+            <Ticket size={20} />
+          </span>
+          <span>
+            CYBERPASS<small>LIVE EVENT ACCESS</small>
+          </span>
+        </div>
+        <p className="eyebrow mt-8">
+          {signup ? "TẠO TÀI KHOẢN" : "CHÀO MỪNG TRỞ LẠI"}
+        </p>
+        <h1>{signup ? "Bắt đầu khám phá" : "Đăng nhập Cyberpass"}</h1>
+        <p className="muted">
+          {signup
+            ? "Đăng ký để đặt vé và nhận mã check-in động."
+            : "Sự kiện, tủ vé và cổng soát vé trong một nơi."}
+        </p>
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            setWorking(true);
+            setProblem("");
+            try {
+              const session = signup
+                ? await signupSession({
+                    username: username.trim(),
+                    email: email.trim(),
+                    displayName: displayName.trim(),
+                    password,
+                  })
+                : await loginSession(username.trim(), password);
+              onAuthenticated(session);
+            } catch (cause) {
+              setProblem(getApiErrorMessage(cause));
+            } finally {
+              setWorking(false);
+            }
+          }}
+        >
+          {signup && (
+            <label className="field-label">
+              Họ và tên
+              <input
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                required
+                autoComplete="name"
+              />
+            </label>
+          )}
+          <label className="field-label">
+            Tên đăng nhập
+            <input
+              value={username}
+              onChange={(event) => setUsername(event.target.value)}
+              required
+              minLength={3}
+              autoComplete="username"
+            />
+          </label>
+          {signup && (
+            <label className="field-label">
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                autoComplete="email"
+              />
+            </label>
+          )}
+          <label className="field-label">
+            Mật khẩu
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              minLength={8}
+              autoComplete={signup ? "new-password" : "current-password"}
+            />
+          </label>
+          {problem && (
+            <p className="form-error" role="alert">
+              {problem}
+            </p>
+          )}
+          <button className="btn-primary full" disabled={working}>
+            {working ? "Đang xử lý..." : signup ? "Tạo tài khoản" : "Đăng nhập"}
+          </button>
+        </form>
+        <button
+          className="auth-switch"
+          onClick={() => {
+            setSignup(!signup);
+            setProblem("");
+          }}
+        >
+          {signup
+            ? "Đã có tài khoản? Đăng nhập"
+            : "Chưa có tài khoản? Đăng ký trên web"}
+        </button>
+      </section>
+    </main>
+  );
+}
 
-  // Navigation State
-  const [activeTab, setActiveTab] = useState<TabType>('events');
-
-  // Events State
+function Portal({
+  session,
+  onLogout,
+}: {
+  session: AuthSession;
+  onLogout: () => void;
+}) {
+  const admin = session.roles.includes("ADMIN");
+  const [page, setPage] = useState<Page>(admin ? "catalog" : "marketplace");
   const [events, setEvents] = useState<Event[]>([]);
-  const [loadingEvents, setLoadingEvents] = useState<boolean>(true);
-  const [eventsError, setEventsError] = useState<string | null>(null);
-
-  // Tickets State
-  const [selectedEventId, setSelectedEventId] = useState<string>('');
-  const [userId, setUserId] = useState<string>('');
-  const [userTickets, setUserTickets] = useState<Ticket[]>([]);
-  const [loadingTickets, setLoadingTickets] = useState<boolean>(false);
-
-  // Gate Scanner State
-  const [gateTestTicket, setGateTestTicket] = useState<Ticket | null>(null);
-
-  // Users State (Synced from Backend)
   const [users, setUsers] = useState<UserAccount[]>([]);
+  const [tickets, setTickets] = useState<TicketData[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [eventId, setEventId] = useState("");
+  const [bookingUserId, setBookingUserId] = useState("");
+  const { error } = useToast();
 
-  const loadUsers = useCallback(async () => {
-    try {
-      const data = await fetchUsers();
-      setUsers(data);
-      if (data.length > 0) setUserId((current) => current || data[0].id);
-    } catch (err) {
-      const msg = getApiErrorMessage(err, 'Không thể tải danh sách người dùng từ backend.');
-      toastError('Lỗi tải người dùng', msg);
-    }
-  }, [toastError]);
-
-  // Initialize Users from Backend
-  useEffect(() => {
-    let current = true;
-    fetchUsers().then((data) => {
-      if (!current) return;
-      setUsers(data);
-      if (data.length > 0) setUserId((selected) => selected || data[0].id);
-    }).catch((err) => {
-      if (current) toastError('Lỗi tải người dùng', getApiErrorMessage(err));
-    });
-    return () => { current = false; };
-  }, [toastError]);
-
-  // Fetch Events from Spring Boot Backend
   const loadEvents = useCallback(async () => {
     try {
       setLoadingEvents(true);
-      setEventsError(null);
-      const data = await fetchEvents();
+      const data = admin ? await fetchAdminEvents() : await fetchEvents();
       setEvents(data);
-      if (data.length > 0) setSelectedEventId((current) => current || data[0].id);
-    } catch (err) {
-      const msg = getApiErrorMessage(err, 'Không thể tải danh sách sự kiện.');
-      setEventsError(msg);
-      toastError('Lỗi kết nối Backend', msg);
+      setEventId((current) => current || data[0]?.id || "");
+    } catch (cause) {
+      error("Không thể tải sự kiện", getApiErrorMessage(cause));
     } finally {
       setLoadingEvents(false);
     }
-  }, [toastError]);
-
-  // Fetch Tickets for a specific user
-  const loadUserTickets = useCallback(
-    async (targetUserId?: string) => {
-      const idToFetch = targetUserId || userId;
-      if (!idToFetch.trim()) return;
-
+  }, [admin, error]);
+  const loadTickets = useCallback(
+    async (silent = false) => {
       try {
-        setLoadingTickets(true);
-        const data = await fetchUserTickets(idToFetch.trim());
-        setUserTickets(data);
-      } catch (err) {
-        const msg = getApiErrorMessage(err, 'Không thể tra cứu danh sách vé của người dùng.');
-        toastError('Lỗi tải vé người dùng', msg);
+        if (!silent) setLoadingTickets(true);
+        setTickets(await fetchMyTickets());
+      } catch (cause) {
+        if (!silent) error("Không thể tải tủ vé", getApiErrorMessage(cause));
       } finally {
-        setLoadingTickets(false);
+        if (!silent) setLoadingTickets(false);
       }
     },
-    [userId, toastError]
+    [error],
   );
-
-  // Initial Load
-  useEffect(() => {
-    let current = true;
-    fetchEvents().then((data) => {
-      if (!current) return;
-      setEvents(data);
-      setLoadingEvents(false);
-      if (data.length > 0) setSelectedEventId((selected) => selected || data[0].id);
-    }).catch((err) => {
-      if (!current) return;
-      const message = getApiErrorMessage(err, 'Không thể tải danh sách sự kiện.');
-      setEventsError(message);
-      setLoadingEvents(false);
-      toastError('Lỗi kết nối Backend', message);
-    });
-    return () => { current = false; };
-  }, [toastError]);
-
-  // Load user tickets when userId changes or when entering tickets tab
-  useEffect(() => {
-    if (activeTab !== 'tickets' || !userId) return;
-    let current = true;
-    fetchUserTickets(userId).then((data) => {
-      if (current) setUserTickets(data);
-    }).catch((err) => {
-      if (current) toastError('Lỗi tải vé người dùng', getApiErrorMessage(err));
-    });
-    return () => { current = false; };
-  }, [activeTab, userId, toastError]);
-
-  // Navigation Handlers
-  const handleSelectEventForTicket = (eventId: string) => {
-    setSelectedEventId(eventId);
-    setActiveTab('tickets');
-    info('Đã chọn sự kiện', 'Chuyển sang màn hình cấp vé cho sự kiện này.');
-  };
-
-  const handleSelectUserForTicket = (targetUserId: string) => {
-    setUserId(targetUserId);
-    setActiveTab('tickets');
-    info('Đã chọn người dùng', `User ID: ${targetUserId.substring(0, 8)}...`);
-  };
-
-  const handleViewUserTickets = (targetUserId: string) => {
-    setUserId(targetUserId);
-    loadUserTickets(targetUserId);
-    setActiveTab('tickets');
-  };
-
-  const handleTestAtGate = (ticket: Ticket) => {
-    setGateTestTicket(ticket);
-    setActiveTab('scanner');
-    info('Chuyển sang Giả Lập Soát Vé', `Đã chuẩn bị kiểm thử cho vé của ${ticket.attendeeName}`);
-  };
-
-  const handleResetUsers = () => {
-    loadUsers();
-    info('Cập nhật danh sách', 'Đã đồng bộ lại danh sách người dùng từ hệ thống.');
-  };
-
-  const handleRefreshAll = () => {
-    loadEvents();
-    loadUsers();
-    if (userId) {
-      loadUserTickets(userId);
+  const loadUsers = useCallback(async () => {
+    if (!admin) return;
+    try {
+      setUsers(await fetchUsers());
+    } catch (cause) {
+      error("Không thể tải tài khoản", getApiErrorMessage(cause));
     }
-  };
+  }, [admin, error]);
+  useEffect(() => {
+    const task = window.setTimeout(() => {
+      void loadEvents();
+      if (admin) void loadUsers();
+      else void loadTickets();
+    }, 0);
+    return () => window.clearTimeout(task);
+  }, [admin, loadEvents, loadUsers, loadTickets]);
+  useEffect(() => {
+    if (page !== "wallet") return;
+    const interval = window.setInterval(() => void loadTickets(true), 5000);
+    return () => window.clearInterval(interval);
+  }, [page, loadTickets]);
+
+  const nav: { id: Page; label: string; icon: typeof Compass }[] = admin
+    ? [
+        { id: "catalog", label: "Danh mục sự kiện", icon: CalendarDays },
+        { id: "operations", label: "Gate Operations", icon: Activity },
+        { id: "marketplace", label: "Sàn sự kiện", icon: Compass },
+        { id: "tickets", label: "Vé đã cấp", icon: Ticket },
+        { id: "users", label: "Tài khoản", icon: Users },
+        { id: "scanner", label: "Giả lập soát vé", icon: ScanLine },
+      ]
+    : [
+        { id: "marketplace", label: "Khám phá", icon: Compass },
+        { id: "wallet", label: "Tủ vé của tôi", icon: Ticket },
+      ];
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col selection:bg-[#00e599]/30 selection:text-[#00e599]">
-      {/* Sticky Top Header */}
-      <Header onRefreshAll={handleRefreshAll} onLogout={onLogout} />
-
-      {/* Main Container */}
-      <main className="flex-1 mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col md:flex-row items-start gap-8">
-          {/* Left Navigation Sidebar */}
-          <Sidebar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            eventCount={events.length}
-          />
-
-          {/* Right Content Area */}
-          <section className="flex-1 w-full min-w-0">
-            {activeTab === 'events' && (
-              <EventsTab
-                events={events}
-                loading={loadingEvents}
-                error={eventsError}
-                onRefresh={loadEvents}
-                onSelectForTicket={handleSelectEventForTicket}
-              />
-            )}
-
-            {activeTab === 'tickets' && (
-              <TicketsTab
-                events={events}
-                selectedEventId={selectedEventId}
-                setSelectedEventId={setSelectedEventId}
-                userId={userId}
-                setUserId={setUserId}
-                userTickets={userTickets}
-                loadingTickets={loadingTickets}
-                onRefreshTickets={loadUserTickets}
-                availableUsers={users}
-                onTestAtGate={handleTestAtGate}
-              />
-            )}
-
-            {activeTab === 'users' && (
-              <UsersTab
-                users={users}
-                onResetUsers={handleResetUsers}
-                onSelectUserForTicket={handleSelectUserForTicket}
-                onViewUserTickets={handleViewUserTickets}
-              />
-            )}
-
-            {activeTab === 'scanner' && (
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="brand">
+          <span className="brand-mark">
+            <Ticket size={19} />
+          </span>
+          <span>
+            CYBERPASS
+            <small>
+              {admin ? "ADMIN COMMAND CENTER" : "LIVE EVENT ACCESS"}
+            </small>
+          </span>
+        </div>
+        <div className="header-right">
+          <span className="status-pill">
+            <ShieldCheck size={14} /> {admin ? "ADMIN" : "MY WALLET"}
+          </span>
+          <span className="header-user">
+            {session.displayName || session.username}
+          </span>
+          <button
+            className="icon-button"
+            onClick={onLogout}
+            title="Đăng xuất"
+            aria-label="Đăng xuất"
+          >
+            <LogOut size={18} />
+          </button>
+        </div>
+      </header>
+      <div className="app-layout">
+        <aside className="main-sidebar">
+          <p className="eyebrow">{admin ? "COMMAND CENTER" : "KHÁM PHÁ"}</p>
+          <nav>
+            {nav.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.id}
+                  className={page === item.id ? "active" : ""}
+                  onClick={() => setPage(item.id)}
+                >
+                  <Icon size={18} /> {item.label}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="sidebar-bottom">
+            <ShieldCheck size={16} /> Kết nối máy chủ an toàn
+          </div>
+        </aside>
+        <main className="main-content">
+          {page === "marketplace" && (
+            <Marketplace
+              events={events}
+              users={users}
+              isAdmin={admin}
+              loading={loadingEvents}
+              initialUserId={bookingUserId}
+              onBooked={() => {
+                void loadEvents();
+                if (!admin) void loadTickets();
+              }}
+              onOpenWallet={() => setPage("wallet")}
+            />
+          )}
+          {page === "wallet" && (
+            <Wallet
+              tickets={tickets}
+              events={events}
+              loading={loadingTickets}
+              onRefresh={() => void loadTickets()}
+            />
+          )}
+          {page === "catalog" && admin && (
+            <AdminCatalog
+              events={events}
+              loading={loadingEvents}
+              onRefresh={() => void loadEvents()}
+              onOpenDashboard={(id) => {
+                setEventId(id);
+                setPage("operations");
+              }}
+              onOpenMarketplace={() => setPage("marketplace")}
+            />
+          )}
+          {page === "operations" && admin && (
+            <GateDashboard
+              events={events}
+              eventId={eventId}
+              onEventChange={setEventId}
+              onBack={() => setPage("catalog")}
+            />
+          )}
+          {page === "tickets" && admin && (
+            <AdminTickets
+              users={users}
+              userId={bookingUserId}
+              onUserChange={setBookingUserId}
+              onOpenMarketplace={() => setPage("marketplace")}
+            />
+          )}
+          {page === "users" && admin && (
+            <div className="space-y-6">
+              <div>
+                <p className="eyebrow">ACCOUNT DIRECTORY</p>
+                <h1 className="page-title">Tài khoản</h1>
+                <p className="muted mt-2">
+                  Chọn người nhận vé để cấp vé từ sàn sự kiện.
+                </p>
+              </div>
+              <div className="user-grid">
+                {users.map((user) => (
+                  <article key={user.id} className="user-card">
+                    <div className="user-avatar">
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <strong>{user.name}</strong>
+                      <p>
+                        @{user.username} · {user.email}
+                      </p>
+                    </div>
+                    <span className="table-badge">{user.role}</span>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => {
+                        setBookingUserId(user.id);
+                        setPage("tickets");
+                      }}
+                    >
+                      Xem vé
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={() => {
+                        setBookingUserId(user.id);
+                        setPage("marketplace");
+                      }}
+                    >
+                      Cấp vé
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+          {page === "scanner" && admin && (
+            <div className="space-y-6">
+              <div>
+                <p className="eyebrow">GATE SIMULATOR</p>
+                <h1 className="page-title">Giả lập soát vé</h1>
+                <p className="muted mt-2">
+                  Kết quả xác thực lấy trực tiếp từ BE.
+                </p>
+              </div>
               <GateScannerTester
-                initialTicket={gateTestTicket}
-                onTicketStatusChanged={() => {
-                  if (userId) loadUserTickets(userId);
-                }}
+                onTicketStatusChanged={() => void loadTickets()}
               />
-            )}
-          </section>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-[#1f293d] bg-[#090d16] py-5 text-center text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-          <div>
-            SecureTix Admin Portal • Dynamic QR Ticketing Platform &copy; 2026
-          </div>
-          <div className="font-mono text-[11px] text-slate-400">
-            Connected to Spring Boot API: <span className="text-[#00e599]">{API_BASE_URL}</span>
-          </div>
-        </div>
-      </footer>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
 
-function AdminGate() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [ready, setReady] = useState<boolean | null>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
+function AppContent() {
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [checking, setChecking] = useState(true);
   useEffect(() => {
     let active = true;
-    void restoreAdminSession().then((authenticated) => {
-      if (active) setReady(authenticated);
+    void restoreSession().then((value) => {
+      if (active) {
+        setSession(value);
+        setChecking(false);
+      }
     });
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, []);
-
   useEffect(() => {
-    const handleExpired = () => setReady(false);
-    window.addEventListener('securetix-session-expired', handleExpired);
-    return () => window.removeEventListener('securetix-session-expired', handleExpired);
+    const expired = () => setSession(null);
+    window.addEventListener("securetix-session-expired", expired);
+    return () =>
+      window.removeEventListener("securetix-session-expired", expired);
   }, []);
-
-  if (ready === null) return <main className="min-h-screen bg-[#090d16] text-slate-400 grid place-items-center">Đang kiểm tra phiên đăng nhập...</main>;
-  if (ready) return <MainPortal onLogout={() => {
-    setReady(false);
-    void logoutAdmin();
-  }} />;
-
-  return <main className="min-h-screen bg-[#090d16] text-white flex items-center justify-center p-4">
-    <form className="w-full max-w-sm rounded-2xl bg-[#121826] border border-[#1f293d] p-6 space-y-4"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-          await loginAdmin(username.trim(), password);
-          setPassword('');
-          setReady(true);
-        } catch (err) {
-          setError(getApiErrorMessage(err, 'Không thể đăng nhập.'));
-        } finally { setLoading(false); }
-      }}>
-      <h1 className="text-xl font-bold">Đăng nhập SecureTix Admin</h1>
-      <p className="text-sm text-slate-400">Dùng tài khoản đã được cấp quyền quản trị.</p>
-      <label className="block text-sm text-slate-300">Tên đăng nhập
-        <input type="text" autoComplete="username" required value={username} onChange={(event) => setUsername(event.target.value)}
-          className="mt-1 w-full rounded-xl bg-[#090d16] border border-[#1f293d] px-3 py-2 text-white" />
-      </label>
-      <label className="block text-sm text-slate-300">Mật khẩu
-        <input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)}
-          className="mt-1 w-full rounded-xl bg-[#090d16] border border-[#1f293d] px-3 py-2 text-white" />
-      </label>
-      {error && <p className="text-sm text-rose-400">{error}</p>}
-      <button type="submit" disabled={loading} className="w-full rounded-xl bg-[#00e599] text-slate-950 font-bold py-2 disabled:opacity-50">
-        {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-      </button>
-    </form>
-  </main>;
+  if (checking)
+    return <div className="loading-page">Đang kiểm tra phiên đăng nhập...</div>;
+  return session ? (
+    <Portal
+      session={session}
+      onLogout={() => {
+        setSession(null);
+        void logoutSession();
+      }}
+    />
+  ) : (
+    <AuthPage onAuthenticated={setSession} />
+  );
 }
 
 export default function App() {
   return (
     <ToastProvider>
-      <AdminGate />
+      <AppContent />
     </ToastProvider>
   );
 }

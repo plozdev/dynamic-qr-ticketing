@@ -11,6 +11,11 @@ export interface Event {
   checkInEnabled?: boolean;
   totalCapacity?: number;
   availableTickets?: number;
+  totalTickets?: number;
+  basePrice?: number;
+  bannerUrl?: string | null;
+  category?: string;
+  isHotTrend?: boolean;
   createdAt?: string;
 }
 
@@ -22,6 +27,10 @@ export interface CreateEventRequest {
   description: string;
   startDateTime: string;
   endDateTime: string;
+  publishNow?: boolean;
+  basePrice?: number;
+  bannerUrl?: string;
+  totalTickets?: number;
 }
 
 export interface Ticket {
@@ -32,11 +41,51 @@ export interface Ticket {
   attendeeName: string;
   categoryName: string;
   seatNumber: string;
-  status: 'READY_TO_CHECK_IN' | 'CHECKED_IN' | 'NOT_YET_CHECK_IN' | string;
+  status: "READY_TO_CHECK_IN" | "CHECKED_IN" | "NOT_YET_CHECK_IN" | string;
   qrPayload?: string;
   issuedAt?: string;
   checkedInAt?: string;
   gateId?: string;
+  gateInfo?: string;
+  venueName?: string;
+  endDateTime?: string;
+  isCheckInOpen?: boolean;
+  checkInNote?: string;
+}
+
+export interface AuthSession {
+  userId: string;
+  username: string;
+  displayName: string;
+  email: string;
+  roles: string[];
+}
+
+export interface DynamicQr {
+  ticketId: string;
+  dynamicPayload: string;
+  expiresAtEpochSeconds: number;
+  refreshIntervalSeconds: number;
+}
+
+export interface GateDashboard {
+  eventId: string;
+  issued: number;
+  checkedIn: number;
+  replayAlerts: number;
+  gates: {
+    gateId: string;
+    granted: number;
+    scansPerMinute: number;
+    denied: number;
+  }[];
+  activity: {
+    ticketId: string;
+    gateId: string;
+    status: string;
+    scannedAt: string;
+  }[];
+  refreshedAt: string;
 }
 
 export interface ClaimTicketRequest {
@@ -71,13 +120,13 @@ export interface UserAccount {
   name: string;
   email: string;
   phone?: string;
-  role: 'USER' | 'ADMIN';
+  role: "USER" | "ADMIN";
   createdAt: string;
 }
 
 export interface ToastMessage {
   id: string;
-  type: 'success' | 'error' | 'info' | 'warning';
+  type: "success" | "error" | "info" | "warning";
   title: string;
   description?: string;
   duration?: number;

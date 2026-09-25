@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
-import { X, Calendar, MapPin, Tag, Plus, Loader2, Sparkles, Clock } from 'lucide-react';
-import type { CreateEventRequest } from '../../types';
+import React, { useState } from "react";
+import {
+  X,
+  Calendar,
+  MapPin,
+  Tag,
+  Plus,
+  Loader2,
+  Sparkles,
+  Clock,
+} from "lucide-react";
+import type { CreateEventRequest } from "../../types";
 
-import { createEvent, getApiErrorMessage } from '../../services/api';
-import { useToast } from '../../context/ToastContext';
+import { createEvent, getApiErrorMessage } from "../../services/api";
+import { useToast } from "../../context/ToastContext";
 
 interface EventFormModalProps {
   isOpen: boolean;
@@ -18,18 +27,26 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
 }) => {
   const { success, error: toastError } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [publishNow, setPublishNow] = useState(true);
 
   // Form State
-  const [name, setName] = useState('');
-  const [venueName, setVenueName] = useState('');
-  const [venueAddress, setVenueAddress] = useState('');
-  const [description, setDescription] = useState('');
-  const [startDateTime, setStartDateTime] = useState('');
-  const [endDateTime, setEndDateTime] = useState('');
-  
+  const [name, setName] = useState("");
+  const [venueName, setVenueName] = useState("");
+  const [venueAddress, setVenueAddress] = useState("");
+  const [description, setDescription] = useState("");
+  const [basePrice, setBasePrice] = useState("450000");
+  const [bannerUrl, setBannerUrl] = useState("");
+  const [totalTickets, setTotalTickets] = useState("1000");
+  const [startDateTime, setStartDateTime] = useState("");
+  const [endDateTime, setEndDateTime] = useState("");
+
   // Gates tag list
-  const [gates, setGates] = useState<string[]>(['CỔNG CHÍNH', 'CỔNG A1', 'CỔNG B2']);
-  const [newGateInput, setNewGateInput] = useState('');
+  const [gates, setGates] = useState<string[]>([
+    "CỔNG CHÍNH",
+    "CỔNG A1",
+    "CỔNG B2",
+  ]);
+  const [newGateInput, setNewGateInput] = useState("");
 
   if (!isOpen) return null;
 
@@ -37,7 +54,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
     const trimmed = newGateInput.trim();
     if (trimmed && !gates.includes(trimmed)) {
       setGates([...gates, trimmed]);
-      setNewGateInput('');
+      setNewGateInput("");
     }
   };
 
@@ -53,15 +70,17 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
     const endDate = new Date(startDate.getTime() + 4 * 60 * 60 * 1000); // 4 hours duration
 
     const formatToLocalISO = (d: Date) => {
-      const pad = (n: number) => n.toString().padStart(2, '0');
+      const pad = (n: number) => n.toString().padStart(2, "0");
       return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     };
 
-    setName('Đại Nhạc Hội EDM - SoundWave Festival 2026');
-    setVenueName('Sân Vận Động Quốc Gia Mỹ Đình');
-    setVenueAddress('Đường Lê Đức Thọ, Phường Mỹ Đình 1, Nam Từ Liêm, Hà Nội');
-    setDescription('Sự kiện âm nhạc quốc tế đỉnh cao với hệ thống kiểm soát vé thông minh Dynamic QR chống giả mạo SecureTix.');
-    setGates(['CỔNG CHÍNH', 'CỔNG A1', 'CỔNG B2', 'CỔNG VIP EMERALD']);
+    setName("Đại Nhạc Hội EDM - SoundWave Festival 2026");
+    setVenueName("Sân Vận Động Quốc Gia Mỹ Đình");
+    setVenueAddress("Đường Lê Đức Thọ, Phường Mỹ Đình 1, Nam Từ Liêm, Hà Nội");
+    setDescription(
+      "Sự kiện âm nhạc quốc tế đỉnh cao với hệ thống kiểm soát vé thông minh Dynamic QR chống giả mạo SecureTix.",
+    );
+    setGates(["CỔNG CHÍNH", "CỔNG A1", "CỔNG B2", "CỔNG VIP EMERALD"]);
     setStartDateTime(formatToLocalISO(startDate));
     setEndDateTime(formatToLocalISO(endDate));
   };
@@ -69,7 +88,10 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !venueName.trim()) {
-      toastError('Thiếu thông tin', 'Vui lòng nhập đầy đủ tên sự kiện và địa điểm!');
+      toastError(
+        "Thiếu thông tin",
+        "Vui lòng nhập đầy đủ tên sự kiện và địa điểm!",
+      );
       return;
     }
 
@@ -77,28 +99,42 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
       setSubmitting(true);
 
       // Convert local date-time strings to standard ISO 8601 with timezone (e.g. 2026-10-20T19:00:00Z)
-      const startISO = startDateTime ? new Date(startDateTime).toISOString() : new Date().toISOString();
-      const endISO = endDateTime 
-        ? new Date(endDateTime).toISOString() 
+      const startISO = startDateTime
+        ? new Date(startDateTime).toISOString()
+        : new Date().toISOString();
+      const endISO = endDateTime
+        ? new Date(endDateTime).toISOString()
         : new Date(Date.now() + 4 * 3600 * 1000).toISOString();
 
       const payload: CreateEventRequest = {
         name: name.trim(),
         venueName: venueName.trim(),
         venueAddress: venueAddress.trim(),
-        venueGates: gates.length > 0 ? gates : ['CỔNG CHÍNH'],
+        venueGates: gates.length > 0 ? gates : ["CỔNG CHÍNH"],
         description: description.trim(),
         startDateTime: startISO,
         endDateTime: endISO,
+        publishNow,
+        basePrice: Number(basePrice),
+        bannerUrl: bannerUrl.trim() || undefined,
+        totalTickets: Number(totalTickets),
       };
 
       await createEvent(payload);
-      success('Tạo sự kiện thành công!', `Sự kiện "${name}" đã được công bố trên hệ thống.`);
+      success(
+        "Tạo sự kiện thành công!",
+        publishNow
+          ? `Sự kiện "${name}" đã được công bố.`
+          : `Sự kiện "${name}" đã lưu nháp.`,
+      );
       onEventCreated();
       onClose();
     } catch (err) {
-      const errMsg = getApiErrorMessage(err, 'Không thể tạo sự kiện. Vui lòng thử lại!');
-      toastError('Lỗi tạo sự kiện', errMsg);
+      const errMsg = getApiErrorMessage(
+        err,
+        "Không thể tạo sự kiện. Vui lòng thử lại!",
+      );
+      toastError("Lỗi tạo sự kiện", errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -106,7 +142,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-      <div 
+      <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -119,8 +155,12 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
               <Calendar className="h-5 w-5" />
             </div>
             <div>
-              <h3 id="modal-title" className="text-base font-bold text-white">Tạo Sự Kiện Mới</h3>
-              <p className="text-xs text-slate-400">Đăng ký sự kiện vào hệ thống quản lý vé SecureTix</p>
+              <h3 id="modal-title" className="text-base font-bold text-white">
+                Tạo Sự Kiện Mới
+              </h3>
+              <p className="text-xs text-slate-400">
+                Đăng ký sự kiện vào hệ thống quản lý vé SecureTix
+              </p>
             </div>
           </div>
 
@@ -145,7 +185,10 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
         </div>
 
         {/* Modal Body / Form */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-4 text-xs">
+        <form
+          onSubmit={handleSubmit}
+          className="overflow-y-auto p-6 space-y-4 text-xs"
+        >
           {/* Event Name */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
@@ -166,7 +209,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5 text-[#00e599]" />
-                <span>Tên địa điểm / Sân vận động</span> <span className="text-[#00e599]">*</span>
+                <span>Tên địa điểm / Sân vận động</span>{" "}
+                <span className="text-[#00e599]">*</span>
               </label>
               <input
                 type="text"
@@ -196,7 +240,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-[#00d2ff]" />
-                <span>Thời gian bắt đầu</span> <span className="text-[#00e599]">*</span>
+                <span>Thời gian bắt đầu</span>{" "}
+                <span className="text-[#00e599]">*</span>
               </label>
               <input
                 type="datetime-local"
@@ -209,7 +254,8 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-[#00d2ff]" />
-                <span>Thời gian kết thúc</span> <span className="text-[#00e599]">*</span>
+                <span>Thời gian kết thúc</span>{" "}
+                <span className="text-[#00e599]">*</span>
               </label>
               <input
                 type="datetime-local"
@@ -244,7 +290,9 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 </span>
               ))}
               {gates.length === 0 && (
-                <span className="text-xs text-slate-500 italic py-0.5">Chưa có cổng nào</span>
+                <span className="text-xs text-slate-500 italic py-0.5">
+                  Chưa có cổng nào
+                </span>
               )}
             </div>
 
@@ -254,7 +302,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 value={newGateInput}
                 onChange={(e) => setNewGateInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     handleAddGate();
                   }
@@ -274,6 +322,41 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           </div>
 
           {/* Description */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="block text-xs font-semibold text-slate-300">
+              Giá vé cơ bản (VND)
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                required
+                value={basePrice}
+                onChange={(event) => setBasePrice(event.target.value)}
+                className="mt-1.5 w-full rounded-xl bg-[#090d16] border border-[#1f293d] p-3 text-xs text-white"
+              />
+            </label>
+            <label className="block text-xs font-semibold text-slate-300">
+              Sức chứa
+              <input
+                type="number"
+                min="1"
+                required
+                value={totalTickets}
+                onChange={(event) => setTotalTickets(event.target.value)}
+                className="mt-1.5 w-full rounded-xl bg-[#090d16] border border-[#1f293d] p-3 text-xs text-white"
+              />
+            </label>
+          </div>
+          <label className="block text-xs font-semibold text-slate-300">
+            URL ảnh banner (tùy chọn)
+            <input
+              type="url"
+              value={bannerUrl}
+              onChange={(event) => setBannerUrl(event.target.value)}
+              placeholder="https://..."
+              className="mt-1.5 w-full rounded-xl bg-[#090d16] border border-[#1f293d] p-3 text-xs text-white"
+            />
+          </label>
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5">
               Mô tả sự kiện
@@ -288,6 +371,14 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
           </div>
 
           {/* Modal Footer */}
+          <label className="flex items-center gap-2 text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={publishNow}
+              onChange={(event) => setPublishNow(event.target.checked)}
+            />{" "}
+            Công bố ngay sau khi tạo
+          </label>
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1f293d]">
             <button
               type="button"
