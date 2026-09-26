@@ -100,16 +100,15 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
                     ValidationStatus.DENIED_INVALID_SIGNATURE, "Chữ ký mật mã của mã QR không hợp lệ");
         }
 
-        // Only authenticated tokens can enter the replay cache. Otherwise an attacker
-        // could poison it with a copied token attached to a forged ticket ID.
-        if (replayCheckPort.markIfSeen(token, Duration.ofSeconds(60))) {
-            return recordAndReturnDenied(ticketId, command.gateId(),
-                    ValidationStatus.DENIED_REPLAY_ATTACK, "Phát hiện mã QR quét lại (Replay Attack), từ chối vào cổng");
-        }
-
         if (!eventCatalogService.isCheckInOpen(ticketData.eventId(), Instant.now())) {
             return recordAndReturnDenied(ticketId, command.gateId(),
                     ValidationStatus.DENIED_CHECK_IN_CLOSED, "Check-in chưa được mở cho sự kiện này");
+        }
+
+        // Only authenticated tokens for open events enter the replay cache.
+        if (replayCheckPort.markIfSeen(token, Duration.ofSeconds(60))) {
+            return recordAndReturnDenied(ticketId, command.gateId(),
+                    ValidationStatus.DENIED_REPLAY_ATTACK, "Phát hiện mã QR quét lại (Replay Attack), từ chối vào cổng");
         }
 
         // 7. Kiểm tra trạng thái vé
@@ -127,7 +126,10 @@ public class GateValidatorService implements ValidateTicketAtGateUseCase {
         }
 
         // 8. Đánh dấu vé đã qua cổng
-        ticketVerificationService.markTicketAsUsed(ticketId, command.gateId());
+        if (!ticketVerificationService.markTicketAsUsed(ticketId, command.gateId())) {
+            return recordAndReturnDenied(ticketId, command.gateId(),
+                    ValidationStatus.DENIED_ALREADY_USED, "Vé đã được sử dụng qua cổng trước đó");
+        }
 
         // 9. Ghi nhận lịch sử soát vé thành công vào scanLogRepository
         scanLogRepository.recordScan(UUID.randomUUID(), ticketId, command.gateId(), ValidationResult.granted(ticketId));

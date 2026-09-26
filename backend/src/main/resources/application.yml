@@ -6,19 +6,19 @@ spring:
   application:
     name: dynamic-qr-ticketing
 
-  # Database Connection & Connection Pool (HikariCP)
+  # Default database: Supabase Session Pooler. Keep the password in an environment variable.
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/ticketing_db}
-    username: ${SPRING_DATASOURCE_USERNAME:ticketing_user}
-    password: ${SPRING_DATASOURCE_PASSWORD:ticketing_secret}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.ewsxgjtyxejovzddbnnd}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: TicketingHikariPool
-      maximum-pool-size: 20
-      minimum-idle: 5
-      idle-timeout: 600000
-      max-lifetime: 1800000
-      connection-timeout: 30000
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: 0
+      idle-timeout: 300000
+      max-lifetime: 900000
+      connection-timeout: 20000
 
   # JPA & Hibernate Configurations
   jpa:
@@ -52,7 +52,7 @@ spring:
     events:
       jdbc:
         schema-initialization:
-          enabled: true
+          enabled: false
       completion-mode: archive
 
 # Actuator & Observability

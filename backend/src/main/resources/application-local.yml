@@ -1,0 +1,15 @@
+# Use with --spring.profiles.active=local to run against Docker PostgreSQL.
+spring:
+  datasource:
+    url: ${LOCAL_DB_URL:jdbc:postgresql://localhost:5432/ticketing_db}
+    username: ${LOCAL_DB_USERNAME:ticketing_user}
+    password: ${LOCAL_DB_PASSWORD:ticketing_secret}
+    hikari:
+      pool-name: TicketingLocalHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 1
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: true

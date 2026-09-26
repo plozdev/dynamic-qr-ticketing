@@ -13,7 +13,7 @@ public interface TicketVerificationExportedService {
 
     Optional<TicketVerificationData> getTicketForValidation(UUID ticketId);
 
-    void markTicketAsUsed(UUID ticketId, String gateId);
+    boolean markTicketAsUsed(UUID ticketId, String gateId);
 
     record TicketVerificationData(
             UUID ticketId,

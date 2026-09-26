@@ -1,6 +1,5 @@
 package com.ticketing.platform.gatevalidator.api.web;
 
-import com.ticketing.platform.gatevalidator.api.dto.GateRosterSyncResponse;
 import com.ticketing.platform.gatevalidator.api.dto.GateScanRequest;
 import com.ticketing.platform.gatevalidator.application.dto.GateValidationResultDto;
 import com.ticketing.platform.gatevalidator.application.dto.ValidateGateCommand;
@@ -15,8 +14,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
-import java.util.Collections;
 
 /**
  * REST Controller cho Gate Validator điều phối soát vé Online và Offline Gate Sync.
@@ -48,20 +45,13 @@ public class GateValidationController {
     }
 
     @GetMapping("/{gateId}/sync-roster")
-    public ResponseEntity<GateRosterSyncResponse> syncGateRoster(
+    public ResponseEntity<Void> syncGateRoster(
             @PathVariable String gateId) {
         if (gateId == null || gateId.isBlank()) {
             throw new IllegalArgumentException("gateId không được để trống");
         }
-        // Đồng bộ danh sách vé ngoại tuyến cho thiết bị soát vé trước giờ G
-        GateRosterSyncResponse response = new GateRosterSyncResponse(
-                gateId,
-                null,
-                Instant.now().getEpochSecond(),
-                0,
-                Collections.emptyList()
-        );
-        return ResponseEntity.ok(response);
+        // A trustworthy offline roster and reconciliation flow is not implemented yet.
+        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
     }
 }
 

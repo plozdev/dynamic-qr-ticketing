@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Khung sườn Adapter kiểm tra chống Replay Attack (Mã QR bị quét lại trong cửa sổ thời gian).
@@ -22,11 +23,14 @@ public class InMemoryReplayCheckAdapter implements ReplayCheckPort {
 
         cache.entrySet().removeIf(entry -> entry.getValue().isBefore(now));
         
-        Instant expiresAt = cache.get(tokenFingerprint);
-        if (expiresAt != null && expiresAt.isAfter(now)) {
-            return true; 
-        }
-        cache.put(tokenFingerprint, now.plus(ttl));
-        return false;
+        AtomicBoolean alreadySeen = new AtomicBoolean(false);
+        cache.compute(tokenFingerprint, (key, expiresAt) -> {
+            if (expiresAt != null && expiresAt.isAfter(now)) {
+                alreadySeen.set(true);
+                return expiresAt;
+            }
+            return now.plus(ttl);
+        });
+        return alreadySeen.get();
     }
 }

@@ -11,7 +11,9 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Khung sườn Adapter hiện thực TicketRepository Port bằng Spring Data JPA.
@@ -30,6 +32,11 @@ public class TicketRepositoryAdapter implements TicketRepository {
     @Override
     public Optional<Ticket> findById(TicketId id) {
         return jpaRepository.findById(id.value()).map(this::toDomain);
+    }
+
+    @Override
+    public boolean markActiveAsUsed(UUID ticketId, String gateId, Instant usedAt) {
+        return jpaRepository.markActiveAsUsed(ticketId, gateId, usedAt) == 1;
     }
 
     @Override

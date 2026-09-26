@@ -176,10 +176,4 @@ public class Event implements AggregateRoot<UUID> {
                 && !now.isAfter(endDateTime);
     }
 
-    public void decrementAvailableTickets() {
-        if (this.availableTickets <= 0) {
-            throw new DomainException("No available tickets left for event: " + this.id);
-        }
-        this.availableTickets--;
-    }
 }

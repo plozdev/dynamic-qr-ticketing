@@ -34,6 +34,11 @@ public class EventRepositoryAdapter implements EventRepository {
     }
 
     @Override
+    public boolean reservePublishedTicket(UUID eventId) {
+        return jpaRepository.reservePublishedTicket(eventId) == 1;
+    }
+
+    @Override
     public boolean existsById(UUID id) {
         return jpaRepository.existsById(id);
     }

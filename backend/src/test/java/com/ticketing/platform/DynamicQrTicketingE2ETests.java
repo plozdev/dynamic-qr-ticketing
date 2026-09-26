@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ticketing.platform.shared.security.AuthSessionService;
 import com.ticketing.platform.user.UserExportedService;
 import com.ticketing.platform.user.application.service.RoleAssignmentService;
+import com.ticketing.platform.ticketissuance.TicketVerificationExportedService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -39,6 +41,7 @@ class DynamicQrTicketingE2ETests {
     @Autowired private UserExportedService users;
     @Autowired private RoleAssignmentService roles;
     @Autowired private AuthSessionService sessions;
+    @Autowired private TicketVerificationExportedService ticketVerificationService;
 
     @Test
     @DisplayName("E2E Test: Full Ticketing Lifecycle - Event Creation -> Issuance -> Mobile Sync -> Web QR -> Gate Validation -> Anti-Replay -> Audit Log")
@@ -176,6 +179,9 @@ class DynamicQrTicketingE2ETests {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.status").value("GRANTED"));
 
+        // The database transition is conditional, even if a second request bypasses the replay cache.
+        assertFalse(ticketVerificationService.markTicketAsUsed(UUID.fromString(ticketId), "GATE_B"));
+
         // 7. Anti-Replay Check (Second Scan of same token - 403 FORBIDDEN)
         mockMvc.perform(post("/api/v1/gates/GATE_A/validate")
                         .header("Authorization", "Bearer " + adminToken)
@@ -184,10 +190,9 @@ class DynamicQrTicketingE2ETests {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.status").value("DENIED_REPLAY_ATTACK"));
 
-        // 8. Offline Gate Sync
+        // 8. Offline Gate Sync is unavailable until rosters and reconciliation exist.
         mockMvc.perform(get("/api/v1/gates/GATE_A/sync-roster"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.gateId").value("GATE_A"));
+                .andExpect(status().isNotImplemented());
 
         // 9. Audit Logs
         mockMvc.perform(get("/api/v1/audit-logs"))

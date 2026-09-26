@@ -59,15 +59,6 @@ public class Ticket implements AggregateRoot<TicketId> {
                 TicketSecret.generate(), TicketStatus.ACTIVE, Instant.now(), null, null, seatNumber, attendeeName, gateInfo);
     }
 
-    public void markAsUsed(String gateId) {
-        if (this.status != TicketStatus.ACTIVE) {
-            throw new DomainException("Ticket cannot be marked as used because it is not active: " + this.status);
-        }
-        this.status = TicketStatus.USED;
-        this.usedAt = Instant.now();
-        this.usedAtGateId = gateId;
-    }
-
     public void revoke() {
         if (this.status == TicketStatus.USED) {
             throw new DomainException("Cannot revoke a ticket that has already been used");

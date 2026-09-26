@@ -3,4 +3,9 @@ build/
 .idea/
 *.log
 .env
+.env.*
 cloudrun.env.yaml
+.local/
+*.dump
+*.backup
+*.pgpass

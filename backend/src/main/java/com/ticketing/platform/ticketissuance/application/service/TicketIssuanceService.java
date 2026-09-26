@@ -34,8 +34,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import com.ticketing.platform.shared.security.SecurityUtils;
 import com.ticketing.platform.ticketissuance.api.dto.ClaimTicketResponse;
 import com.ticketing.platform.ticketissuance.application.dto.ClaimTicketCommand;
 import com.ticketing.platform.ticketissuance.application.port.in.ClaimTicketUseCase;
@@ -282,11 +280,7 @@ public class TicketIssuanceService implements IssueTicketUseCase, ClaimTicketUse
     }
 
     @Override
-    public void markTicketAsUsed(UUID ticketId, String gateId) {
-        Ticket ticket = ticketRepository.findById(TicketId.of(ticketId))
-                .orElseThrow(() -> new EntityNotFoundException("Ticket", ticketId));
-
-        ticket.markAsUsed(gateId);
-        ticketRepository.save(ticket);
+    public boolean markTicketAsUsed(UUID ticketId, String gateId) {
+        return ticketRepository.markActiveAsUsed(ticketId, gateId, Instant.now());
     }
 }

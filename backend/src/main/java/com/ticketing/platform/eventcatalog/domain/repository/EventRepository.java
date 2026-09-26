@@ -14,6 +14,8 @@ public interface EventRepository {
 
     Optional<Event> findById(UUID id);
 
+    boolean reservePublishedTicket(UUID eventId);
+
     boolean existsById(UUID id);
 
     java.util.List<Event> findAll();

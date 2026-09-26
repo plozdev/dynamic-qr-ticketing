@@ -139,13 +139,15 @@ public class EventCatalogService implements CreateEventUseCase, GetEventQuery, E
 
     @Override
     public void reserveTicket(UUID eventId) {
+        if (eventRepository.reservePublishedTicket(eventId)) {
+            return;
+        }
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new EntityNotFoundException("Event", eventId));
         if (event.getStatus() != EventStatus.PUBLISHED) {
             throw new DomainException("Cannot reserve ticket for non-published event: " + eventId);
         }
-        event.decrementAvailableTickets();
-        eventRepository.save(event);
+        throw new DomainException("No available tickets left for event: " + eventId);
     }
 
     @Override

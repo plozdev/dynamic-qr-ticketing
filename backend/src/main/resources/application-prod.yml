@@ -6,16 +6,16 @@ spring:
   application:
     name: dynamic-qr-ticketing
 
-  # Database Connection & HikariCP for Cloud Run & Cloud SQL / Supabase / Neon
+  # Supabase Session Pooler (IPv4). Override URL and username for another database.
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.ewsxgjtyxejovzddbnnd}
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: CloudRunHikariPool
-      maximum-pool-size: 10
-      minimum-idle: 2
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: 0
       idle-timeout: 300000
       max-lifetime: 900000
       connection-timeout: 20000
