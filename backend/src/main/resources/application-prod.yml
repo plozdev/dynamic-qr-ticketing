@@ -1,0 +1,86 @@
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+spring:
+  application:
+    name: dynamic-qr-ticketing
+  servlet:
+    multipart:
+      enabled: false
+
+  # Supabase Session Pooler (IPv4). Override URL and username for another database.
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.ewsxgjtyxejovzddbnnd}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: CloudRunHikariPool
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: 0
+      idle-timeout: 300000
+      max-lifetime: 900000
+      connection-timeout: 20000
+
+  # JPA & Hibernate Configurations for Production
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+
+  # Flyway Migration enabled for Production
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+
+  # Spring Modulith Event Publication & Outbox
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: false
+      completion-mode: archive
+
+# Observability for Cloud Run Health Probes
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+
+# Business & Cryptographic Configurations
+app:
+  qr:
+    rotation-interval-seconds: 30
+    drift-tolerance-windows: 1
+    anti-replay-ttl-seconds: 60
+
+# Swagger / OpenAPI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

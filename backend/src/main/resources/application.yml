@@ -1,0 +1,85 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: dynamic-qr-ticketing
+
+  # Default database: Supabase Session Pooler. Keep the password in an environment variable.
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres?sslmode=require}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres.ewsxgjtyxejovzddbnnd}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: TicketingHikariPool
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:3}
+      minimum-idle: 0
+      idle-timeout: 300000
+      max-lifetime: 900000
+      connection-timeout: 20000
+
+  # JPA & Hibernate Configurations
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+
+  # Database Initialization
+  sql:
+    init:
+      mode: never
+      encoding: UTF-8
+
+  # Database Migration with Flyway
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+
+  # Spring Modulith Event Publication & Outbox
+  modulith:
+    events:
+      jdbc:
+        schema-initialization:
+          enabled: false
+      completion-mode: archive
+
+# Actuator & Observability
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, modulith
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
+# Business & Cryptographic Configurations for Dynamic QR
+app:
+  qr:
+    rotation-interval-seconds: 30
+    drift-tolerance-windows: 1
+    anti-replay-ttl-seconds: 60
+
+# OpenAPI / Swagger UI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
