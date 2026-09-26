@@ -28,6 +28,13 @@ Trình giả lập cổng trên web gửi QR tới backend. Khi xác thực thà
 
 ![Dashboard quản trị với KPI, cổng và hoạt động quét](docs/showcase/admin-dashboard.png)
 
+### 🎥 Video Demo Thực Tế
+
+[![CyberPass Demo](https://img.youtube.com/vi/FQS_ODJHf4s/0.jpg)](https://www.youtube.com/watch?v=FQS_ODJHf4s)
+
+> 🎬 **Xem video demo trên YouTube**: Trình diễn trọn vẹn luồng quét mã QR động, cơ chế từ chối Replay Attack / vé hết hạn và đồng bộ trạng thái vé real-time qua Server-Sent Events (SSE).
+
+
 ## Chức năng
 
 | Phần | Hiện có |
