@@ -797,6 +797,9 @@ code,
 .pass-status.success {
   color: #5de9aa;
 }
+.pass-status.ready {
+  color: #4edea3;
+}
 .pass-status strong {
   font-size: 13px;
 }

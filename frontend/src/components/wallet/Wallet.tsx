@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { useMemo, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -7,10 +6,10 @@ import {
   MapPin,
   RefreshCw,
   ShieldCheck,
+  Smartphone,
   Ticket as TicketIcon,
 } from "lucide-react";
-import type { Event, Ticket, DynamicQr } from "../../types";
-import { fetchDynamicQr, getApiErrorMessage } from "../../services/api";
+import type { Event, Ticket } from "../../types";
 
 interface Props {
   tickets: Ticket[];
@@ -23,12 +22,7 @@ const short = (value: string) => `${value.slice(0, 8)}…${value.slice(-4)}`;
 export function Wallet({ tickets, events, loading, onRefresh }: Props) {
   const [selectedId, setSelectedId] = useState("");
   const [filter, setFilter] = useState<"upcoming" | "past" | "all">("upcoming");
-  const [qr, setQr] = useState<DynamicQr | null>(null);
-  const [qrError, setQrError] = useState("");
-  const [hash, setHash] = useState<{ payload: string; value: string } | null>(
-    null,
-  );
-  const [now, setNow] = useState(() => Date.now());
+
   const visible = useMemo(
     () =>
       tickets.filter(
@@ -43,81 +37,6 @@ export function Wallet({ tickets, events, loading, onRefresh }: Props) {
   const selected =
     visible.find((ticket) => ticket.id === selectedId) || visible[0];
   const event = events.find((item) => item.id === selected?.eventId);
-  const activeQr =
-    qr?.ticketId === selected?.id && selected?.status === "READY_TO_CHECK_IN"
-      ? qr
-      : null;
-  const remaining = activeQr
-    ? Math.max(0, Math.ceil(activeQr.expiresAtEpochSeconds - now / 1000))
-    : 0;
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    let active = true;
-    let loadingQr = false;
-    const ticketId = selected?.id;
-    if (!ticketId || selected?.status !== "READY_TO_CHECK_IN") return;
-    let expiresAt = 0;
-    const refresh = async () => {
-      if (loadingQr) return;
-      loadingQr = true;
-      try {
-        const next = await fetchDynamicQr(ticketId);
-        if (active) {
-          expiresAt = next.expiresAtEpochSeconds;
-          setQr(next);
-          setQrError("");
-        }
-      } catch (cause) {
-        if (active) {
-          expiresAt = Date.now() / 1000 + 5;
-          setQr(null);
-          setQrError(getApiErrorMessage(cause));
-        }
-      } finally {
-        loadingQr = false;
-      }
-    };
-    void refresh();
-    const interval = window.setInterval(() => {
-      if (!active) return;
-      if (Date.now() / 1000 >= expiresAt) void refresh();
-    }, 1000);
-    return () => {
-      active = false;
-      window.clearInterval(interval);
-    };
-  }, [selected?.id, selected?.status]);
-
-  useEffect(() => {
-    let active = true;
-    if (!qr?.dynamicPayload) return;
-    const payload = qr.dynamicPayload;
-    const bytes = new TextEncoder().encode(payload);
-    void crypto.subtle
-      .digest("SHA-256", bytes)
-      .then((buffer) => {
-        if (active)
-          setHash({
-            payload,
-            value: Array.from(new Uint8Array(buffer))
-              .map((byte) => byte.toString(16).padStart(2, "0"))
-              .join("")
-              .slice(0, 20)
-              .toUpperCase(),
-          });
-      })
-      .catch(() => {
-        /* Web Crypto may be unavailable outside secure origins. */
-      });
-    return () => {
-      active = false;
-    };
-  }, [qr?.dynamicPayload]);
 
   return (
     <div className="space-y-7">
@@ -212,47 +131,19 @@ export function Wallet({ tickets, events, loading, onRefresh }: Props) {
               <div className="pass-main">
                 <p className="eyebrow">
                   {selected.status === "READY_TO_CHECK_IN"
-                    ? "LIVE TICKET / READY TO SCAN"
+                    ? "LIVE PASS / READY TO SCAN"
                     : selected.status === "CHECKED_IN"
                       ? "TICKET USED"
                       : "TICKET STATUS"}
                 </p>
                 {selected.status === "READY_TO_CHECK_IN" ? (
-                  <>
-                    <div className="qr-frame">
-                      {activeQr && remaining > 0 ? (
-                        <QRCodeSVG
-                          value={activeQr.dynamicPayload}
-                          size={206}
-                          marginSize={2}
-                          level="M"
-                        />
-                      ) : (
-                        <div className="qr-placeholder">
-                          {qrError || "Đang lấy mã QR từ máy chủ..."}
-                        </div>
-                      )}
-                    </div>
-                    <div
-                      className="countdown"
-                      style={{
-                        background: `conic-gradient(#4edea3 ${(remaining / (activeQr?.refreshIntervalSeconds || 30)) * 360}deg, #283247 0deg)`,
-                      }}
-                    >
-                      <span>{remaining}s</span>
-                    </div>
-                    <p className="muted small-text">
-                      Mã tự cập nhật theo thời điểm hết hạn do BE trả về.
-                    </p>
-                    <div className="hash-line">
-                      <span>SHA-256</span>
-                      <code>
-                        {hash?.payload === activeQr?.dynamicPayload
-                          ? hash?.value
-                          : "Đang tính..."}
-                      </code>
-                    </div>
-                  </>
+                  <div className="pass-status ready">
+                    <Smartphone size={42} />
+                    <strong>SẴN SÀNG CHECK-IN TRÊN APP</strong>
+                    <span style={{ maxWidth: "260px", textAlign: "center", lineHeight: "1.4" }}>
+                      Mã QR động bảo mật cao chỉ hiển thị trên ứng dụng di động CyberPass. Vui lòng mở ứng dụng tại cổng soát vé.
+                    </span>
+                  </div>
                 ) : selected.status === "CHECKED_IN" ? (
                   <div className="pass-status success">
                     <CheckCircle2 size={42} />
@@ -271,7 +162,7 @@ export function Wallet({ tickets, events, loading, onRefresh }: Props) {
                     </strong>
                     <span>
                       {selected.checkInNote ||
-                        "Mã QR chỉ hiển thị khi ban tổ chức mở cổng."}
+                        "Cổng soát vé chưa mở cho sự kiện này."}
                     </span>
                   </div>
                 )}
@@ -298,17 +189,16 @@ export function Wallet({ tickets, events, loading, onRefresh }: Props) {
           <aside className="wallet-side">
             <div className="info-panel">
               <ShieldCheck size={20} />
-              <h3>Mã vé động</h3>
+              <h3>Mã vé động bảo mật</h3>
               <p>
-                Mã QR được tạo và kiểm tra bởi BE. Ảnh chụp màn hình sẽ hết hiệu
-                lực khi cửa sổ thời gian kết thúc.
+                Mã QR động được tạo độc quyền trên ứng dụng CyberPass Mobile với cơ chế xoay vòng TOTP và mã hoá HMAC. Ảnh chụp màn hình hoặc in giấy sẽ không hợp lệ.
               </p>
             </div>
             <div className="info-panel">
+              <Smartphone size={20} />
               <h3>Trước khi đến cổng</h3>
               <p>
-                Mở vé khi check-in được bật. Giữ kết nối mạng để tải mã mới
-                trong bản web.
+                Đăng nhập tài khoản trên ứng dụng di động CyberPass để mở mã QR động trước khi vào cổng soát vé.
               </p>
             </div>
           </aside>
