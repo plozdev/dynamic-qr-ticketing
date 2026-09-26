@@ -28,8 +28,6 @@ Trình giả lập cổng trên web gửi QR tới backend. Khi xác thực thà
 
 ![Dashboard quản trị với KPI, cổng và hoạt động quét](docs/showcase/admin-dashboard.png)
 
-Các ảnh trong `docs/showcase/` là ảnh chụp tĩnh. Khi có GIF cho luồng đặt vé hoặc QR xoay vòng, có thể thay ảnh tương ứng bằng GIF mà không cần đổi bố cục README.
-
 ## Chức năng
 
 | Phần | Hiện có |
