@@ -43,7 +43,6 @@ Các ảnh trong `docs/showcase/` là ảnh chụp tĩnh. Khi có GIF cho luồn
 flowchart LR
     U[Web hoặc Android] -->|Đăng nhập, xem và đặt vé| API[Spring Boot API]
     API --> PG[(PostgreSQL)]
-    API --> R[(Redis)]
     M[Android: Dynamic QR] -->|Ảnh QR| G[Web: giả lập cổng]
     G -->|Xác thực online| API
     API -->|SSE: trạng thái vé| M
@@ -51,15 +50,19 @@ flowchart LR
 
 ## Công nghệ và cấu trúc
 
-- `backend/`: Java 21, Spring Boot 3.4, Spring Security, JPA, Flyway, Spring Modulith; PostgreSQL và Redis qua Docker Compose.
+- `backend/`: Java 21, Spring Boot 3.4, Spring Security, JPA, Flyway, Spring Modulith; PostgreSQL qua Docker Compose hoặc Supabase. Docker Compose cũng khởi động Redis, hiện BE chưa dùng.
 - `frontend/`: React 19, TypeScript, Vite, Tailwind CSS.
 - `mobile/`: Kotlin, Jetpack Compose, OkHttp, C++/NDK cho QR động; có fallback HMAC khi native library không khả dụng.
 
 ## Chạy trên máy cá nhân
 
-Cần **JDK 21**, **Node.js/npm** và **Docker Desktop**. Để build Android cần Android Studio, SDK, NDK và CMake theo cấu hình Gradle.
+Cần **JDK 21** và **Node.js/npm**. Docker Desktop chỉ cần khi chạy PostgreSQL local hoặc chuyển dữ liệu Docker lên Supabase. Để build Android cần Android Studio, SDK, NDK và CMake theo cấu hình Gradle.
 
-### 1. Database và Redis
+### 1. Database
+
+Backend mặc định kết nối Supabase `cyber_pass`; chạy [script chuyển dữ liệu Docker](DEPLOYMENT.md#1-chuyển-postgresql-docker-sang-supabase) trước nếu bạn cần giữ user và vé hiện có. Mật khẩu Supabase được nhập lúc khởi động BE, không lưu trong file cấu hình.
+
+Nếu muốn chạy với PostgreSQL Docker local, bật Docker Desktop rồi chạy:
 
 ```powershell
 cd backend
@@ -75,10 +78,12 @@ Trong terminal khác:
 
 ```powershell
 cd backend
-.\gradlew.bat bootRun
+.\run-supabase.ps1
 ```
 
-API mặc định ở <http://localhost:8080/api/v1>; Swagger UI ở <http://localhost:8080/swagger-ui.html>. Flyway tự áp dụng migration trong `backend/src/main/resources/db/migration/` khi BE khởi động. Migration V13 thêm 12 event và 12 user demo nếu file đó có trong checkout.
+Script hỏi database password và chạy BE với profile `prod`. API ở <http://localhost:8080/api/v1>; Swagger UI ở <http://localhost:8080/swagger-ui.html>. Flyway tự áp dụng migration trong `backend/src/main/resources/db/migration/` khi BE khởi động.
+
+Nếu dùng Docker local thay cho Supabase, chạy `.\gradlew.bat bootRun --args='--spring.profiles.active=local'` sau khi `docker compose up -d`. Profile `local` nằm trong `backend/src/main/resources/application-local.yml`; cấu hình mặc định trong `application.yml` vẫn là Supabase.
 
 ### 3. Frontend
 
@@ -114,7 +119,7 @@ WHERE username = 'plozdev';
 4. Trên web ADMIN, mở trình giả lập cổng, dán ảnh QR hoặc payload rồi gửi xác thực. Backend quyết định kết quả; quét lại vé đã dùng sẽ bị từ chối.
 5. Xem trạng thái vé trên Android/web và số liệu trên dashboard cổng.
 
-**Giới hạn hiện tại:** `Early Bird`, `Standard GA` và `VIP` dùng cùng `basePrice`; chưa có giỏ hàng/thanh toán. Web cần mạng để xác thực QR với BE. Mobile cần mạng để bắt đầu check-in hoặc làm mới thủ công; QR đang mở có thể tiếp tục xoay vòng từ khóa đã đồng bộ. API `sync-roster` cho thiết bị quét offline hiện trả danh sách rỗng. Dashboard lấy dữ liệu thật từ BE và làm mới định kỳ.
+**Giới hạn hiện tại:** `Early Bird`, `Standard GA` và `VIP` dùng cùng `basePrice`; chưa có giỏ hàng/thanh toán. Web và màn hình quét trên mobile cần mạng để xác thực QR với BE; mất mạng thì từ chối check-in. Mobile cần mạng để bắt đầu check-in hoặc làm mới thủ công; QR đang mở có thể tiếp tục xoay vòng từ khóa đã đồng bộ. API `sync-roster` trả `501 Not Implemented` cho đến khi có roster tin cậy và luồng đồng bộ lượt quét offline. Dashboard lấy dữ liệu thật từ BE và làm mới định kỳ.
 
 ## API chính
 

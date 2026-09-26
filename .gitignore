@@ -17,6 +17,15 @@ Desktop.ini
 # Logs
 *.log
 
+# Local database exports and secrets
+*.dump
+*.backup
+*.pgpass
+backend/.local/
+.env
+.env.*
+!.env.example
+
 # Documentation & Internal Design Specs
 docs/*
 !docs/showcase/
