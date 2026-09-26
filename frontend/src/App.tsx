@@ -431,9 +431,9 @@ function AppContent() {
   }, []);
   useEffect(() => {
     const expired = () => setSession(null);
-    window.addEventListener("securetix-session-expired", expired);
+    window.addEventListener("cyberpass-session-expired", expired);
     return () =>
-      window.removeEventListener("securetix-session-expired", expired);
+      window.removeEventListener("cyberpass-session-expired", expired);
   }, []);
   if (checking)
     return <div className="loading-page">Đang kiểm tra phiên đăng nhập...</div>;

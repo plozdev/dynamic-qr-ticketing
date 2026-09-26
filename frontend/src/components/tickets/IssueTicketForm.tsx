@@ -286,7 +286,7 @@ export const IssueTicketForm: React.FC<IssueTicketFormProps> = ({
 
       {/* Helper Footer */}
       <div className="mt-5 pt-4 border-t border-[#1f293d] text-[11px] text-slate-400 leading-relaxed">
-        💡 <strong className="text-slate-300">Hướng dẫn kiểm tra:</strong> Sau khi cấp vé, tài khoản <strong className="text-white">{selectedUser?.name || effectiveAttendeeName}</strong> mở ứng dụng SecureTix (Android) và bấm <strong className="text-[#00e599]">"Làm mới"</strong> sẽ thấy vé xuất hiện kèm mã Dynamic QR 30s.
+        💡 <strong className="text-slate-300">Hướng dẫn kiểm tra:</strong> Sau khi cấp vé, tài khoản <strong className="text-white">{selectedUser?.name || effectiveAttendeeName}</strong> mở ứng dụng CyberPass (Android) và bấm <strong className="text-[#00e599]">"Làm mới"</strong> sẽ thấy vé xuất hiện kèm mã Dynamic QR 30s.
       </div>
     </div>
   );

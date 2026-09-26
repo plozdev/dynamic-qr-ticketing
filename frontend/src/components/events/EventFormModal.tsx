@@ -78,7 +78,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
     setVenueName("Sân Vận Động Quốc Gia Mỹ Đình");
     setVenueAddress("Đường Lê Đức Thọ, Phường Mỹ Đình 1, Nam Từ Liêm, Hà Nội");
     setDescription(
-      "Sự kiện âm nhạc quốc tế đỉnh cao với hệ thống kiểm soát vé thông minh Dynamic QR chống giả mạo SecureTix.",
+      "Sự kiện âm nhạc quốc tế đỉnh cao với hệ thống kiểm soát vé thông minh Dynamic QR chống giả mạo CyberPass.",
     );
     setGates(["CỔNG CHÍNH", "CỔNG A1", "CỔNG B2", "CỔNG VIP EMERALD"]);
     setStartDateTime(formatToLocalISO(startDate));
@@ -159,7 +159,7 @@ export const EventFormModal: React.FC<EventFormModalProps> = ({
                 Tạo Sự Kiện Mới
               </h3>
               <p className="text-xs text-slate-400">
-                Đăng ký sự kiện vào hệ thống quản lý vé SecureTix
+                Đăng ký sự kiện vào hệ thống quản lý vé CyberPass
               </p>
             </div>
           </div>

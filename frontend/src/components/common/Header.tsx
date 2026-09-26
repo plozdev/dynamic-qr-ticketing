@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({ onRefreshAll, onLogout }) => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-[#00e599] bg-clip-text text-transparent">
-                SecureTix
+                CyberPass
               </span>
               <span className="rounded-md bg-[#00e599]/10 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-[#00e599] border border-[#00e599]/30">
                 ADMIN PORTAL

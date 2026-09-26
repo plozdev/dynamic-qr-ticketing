@@ -44,7 +44,7 @@ apiClient.interceptors.response.use(
       authToken
     ) {
       clearAuthToken();
-      window.dispatchEvent(new Event("securetix-session-expired"));
+      window.dispatchEvent(new Event("cyberpass-session-expired"));
     }
     return Promise.reject(error);
   },
