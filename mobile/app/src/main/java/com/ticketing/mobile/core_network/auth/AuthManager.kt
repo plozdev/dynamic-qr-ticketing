@@ -2,6 +2,7 @@ package com.ticketing.mobile.core_network.auth
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,7 +55,7 @@ class AuthManager private constructor() {
                     isDemo = false
                 )
             } else {
-                sp.edit().clear().apply()
+                sp.edit { clear() }
             }
         }
     }
@@ -67,19 +68,19 @@ class AuthManager private constructor() {
             token = token,
             isDemo = false
         )
-        prefs?.edit()
-            ?.putBoolean(KEY_IS_AUTHENTICATED, true)
-            ?.putString(KEY_USER_ID, userId)
-            ?.putString(KEY_EMAIL, email)
-            ?.putString(KEY_DISPLAY_NAME, displayName)
-            ?.putString(KEY_TOKEN, token)
-            ?.putBoolean(KEY_IS_DEMO, false)
-            ?.apply()
+        prefs?.edit {
+            putBoolean(KEY_IS_AUTHENTICATED, true)
+            putString(KEY_USER_ID, userId)
+            putString(KEY_EMAIL, email)
+            putString(KEY_DISPLAY_NAME, displayName)
+            putString(KEY_TOKEN, token)
+            putBoolean(KEY_IS_DEMO, false)
+        }
     }
 
     fun logout() {
         _authState.value = AuthState.Unauthenticated
-        prefs?.edit()?.clear()?.apply()
+        prefs?.edit { clear() }
     }
 
     fun getCurrentUserId(): String {

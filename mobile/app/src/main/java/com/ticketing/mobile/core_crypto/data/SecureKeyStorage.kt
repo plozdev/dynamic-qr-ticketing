@@ -6,6 +6,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.Log
+import androidx.core.content.edit
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -78,14 +79,14 @@ class SecureKeyStorage(context: Context) : ISecureKeyStorage {
                 // Lưu định dạng IV_BASE64:ENCRYPTED_BASE64
                 val combined = Base64.encodeToString(iv, Base64.NO_WRAP) + ":" +
                         Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
-                prefs.edit().putString(KEY_PREFIX + ticketId, combined).apply()
+                prefs.edit { putString(KEY_PREFIX + ticketId, combined) }
                 return
             } catch (e: Exception) {
                 Log.w(TAG, "Encryption failed, falling back: ${e.message}")
             }
         }
         // Fallback lưu trực tiếp nếu KeyStore không khả dụng
-        prefs.edit().putString(KEY_PREFIX + ticketId, secretKey).apply()
+        prefs.edit { putString(KEY_PREFIX + ticketId, secretKey) }
     }
 
     override fun getSecretKey(ticketId: String): String? {
@@ -112,11 +113,11 @@ class SecureKeyStorage(context: Context) : ISecureKeyStorage {
     }
 
     override fun removeSecretKey(ticketId: String) {
-        prefs.edit().remove(KEY_PREFIX + ticketId).apply()
+        prefs.edit { remove(KEY_PREFIX + ticketId) }
     }
 
     override fun clear() {
-        prefs.edit().clear().apply()
+        prefs.edit { clear() }
     }
 
     companion object {

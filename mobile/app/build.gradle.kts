@@ -79,7 +79,7 @@ dependencies {
     // Networking (core_network)
     implementation(libs.okhttp.client)
     implementation(libs.okhttp.logging)
-    implementation("com.google.zxing:core:3.5.4")
+    implementation(libs.zxing.core)
 
 
     testImplementation(libs.junit)

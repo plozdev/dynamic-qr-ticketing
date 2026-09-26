@@ -103,9 +103,7 @@ class MainActivity : ComponentActivity() {
         // Gate Scanner feature dependencies
         val gateRemoteDataSource = DefaultGateRemoteDataSource()
         val gateValidationRepository = GateValidationRepositoryImpl(
-            remoteDataSource = gateRemoteDataSource,
-            cryptoEngine = cryptoEngine,
-            isOfflineEnabled = false
+            remoteDataSource = gateRemoteDataSource
         )
         val validateScannedTicketUseCase = ValidateScannedTicketUseCase(gateValidationRepository)
 

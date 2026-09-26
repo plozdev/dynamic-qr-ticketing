@@ -9,12 +9,12 @@ import com.ticketing.mobile.gate_scanner.domain.model.ScanResult
 interface IGateValidationRepository {
 
     /**
-     * Validate scanned QR code through local crypto validation & server check-in.
+     * Validate scanned QR code and persist check-in through the backend.
      */
     suspend fun validateTicket(scanResult: ScanResult): Result<GateAccessStatus>
 
     /**
-     * Check if gate terminal operates in offline-first mode.
+     * Offline gate validation is unavailable until trusted rosters and sync exist.
      */
     fun isOfflineMode(): Boolean
 }

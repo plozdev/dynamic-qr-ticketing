@@ -228,7 +228,6 @@ class TicketDisplayViewModel(
     }
 
     override fun onCleared() {
-        super.onCleared()
         qrObservationJob?.cancel()
         ticketSseJob?.cancel()
         ticketSseClient?.disconnect()

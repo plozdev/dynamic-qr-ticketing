@@ -89,6 +89,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.core.content.edit
 import androidx.compose.ui.unit.sp
 import com.ticketing.mobile.R
 import com.ticketing.mobile.core_network.auth.AuthManager
@@ -154,7 +156,7 @@ fun LoginScreen(
         successAccountName = successAccountName,
         serverUrl = serverUrl,
         onServerUrlSaved = { value ->
-            preferences.edit().putString("custom_server_url", value).apply()
+            preferences.edit { putString("custom_server_url", value) }
             OkHttpApiClient.customBaseUrl = value.ifBlank { null }
             OkHttpApiClient.activeBaseUrl = null
             serverUrl = value
@@ -228,11 +230,11 @@ fun LoginScreenContent(
     isLoading: Boolean,
     errorMessage: String?,
     onSubmit: (AuthForm) -> Unit,
+    modifier: Modifier = Modifier,
     isSuccess: Boolean = false,
     successAccountName: String = "",
     serverUrl: String = "",
-    onServerUrlSaved: (String) -> Unit = {},
-    modifier: Modifier = Modifier
+    onServerUrlSaved: (String) -> Unit = {}
 ) {
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -307,7 +309,7 @@ fun LoginScreenContent(
                     .navigationBarsPadding()
                     .imePadding()
                     .alpha(formAlpha)
-                    .offset(y = formOffsetY)
+                    .offset { IntOffset(0, formOffsetY.roundToPx()) }
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 22.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
