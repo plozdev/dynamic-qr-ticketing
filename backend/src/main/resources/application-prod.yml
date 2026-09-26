@@ -1,10 +1,19 @@
 server:
   port: ${PORT:8080}
   shutdown: graceful
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
 
 spring:
   application:
     name: dynamic-qr-ticketing
+  servlet:
+    multipart:
+      enabled: false
 
   # Supabase Session Pooler (IPv4). Override URL and username for another database.
   datasource:
