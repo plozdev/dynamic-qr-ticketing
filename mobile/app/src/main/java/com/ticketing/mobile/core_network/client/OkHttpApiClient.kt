@@ -196,6 +196,9 @@ class OkHttpApiClient(
 
     companion object {
         @Volatile
+        var PRODUCTION_BACKEND_URL: String? = null
+
+        @Volatile
         var customBaseUrl: String? = null
 
         @Volatile
@@ -221,6 +224,12 @@ class OkHttpApiClient(
         }
 
         fun defaultCandidateUrls(): List<String> {
+            val prod = PRODUCTION_BACKEND_URL?.trim()?.removeSuffix("/")
+            if (!prod.isNullOrBlank()) {
+                val fullProd = if (prod.endsWith("/api/v1")) prod else "$prod/api/v1"
+                return listOf(fullProd)
+            }
+
             val baseList = if (isEmulator()) {
                 listOf(
                     "http://10.0.2.2:8080/api/v1",

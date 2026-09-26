@@ -83,7 +83,7 @@ Tải [CyberPass-1.0-debug.apk](mobile/releases/CyberPass-1.0-debug.apk) từ re
 adb install -r mobile/releases/CyberPass-1.0-debug.apk
 ```
 
-Ở màn hình đăng nhập, mở **Cấu hình địa chỉ API**, nhập `https://CLOUD_RUN_URL` rồi lưu; app tự thêm `/api/v1`. Sau đó đăng nhập user đã chuyển từ Docker sang Supabase. APK này được ký bằng **debug key** và dùng để thử nghiệm; bản phát hành chính thức cần release keystore riêng. Nếu build lại ở máy khác bằng debug key khác, Android có thể yêu cầu gỡ bản cũ trước khi cài.
+Sau khi deploy Backend có URL Cloud Run (`https://CLOUD_RUN_URL`), mở file `mobile/app/src/main/java/com/ticketing/mobile/core_network/client/OkHttpApiClient.kt`, điền URL vào biến `PRODUCTION_BACKEND_URL = "https://CLOUD_RUN_URL"`, sau đó build lại APK hoặc chạy trên thiết bị/emulator. Sau đó đăng nhập user đã chuyển từ Docker sang Supabase. APK này được ký bằng **debug key** và dùng để thử nghiệm; bản phát hành chính thức cần release keystore riêng. Nếu build lại ở máy khác bằng debug key khác, Android có thể yêu cầu gỡ bản cũ trước khi cài.
 
 ## Kiểm tra luồng
 

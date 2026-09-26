@@ -137,13 +137,8 @@ fun LoginScreen(
     onLoginSuccess: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val preferences = remember(context) {
-        context.getSharedPreferences("secure_tix_prefs", android.content.Context.MODE_PRIVATE)
-    }
-    var serverUrl by remember { mutableStateOf(preferences.getString("custom_server_url", "").orEmpty()) }
     val scope = rememberCoroutineScope()
-    val apiClient = remember(serverUrl) { OkHttpApiClient() }
+    val apiClient = remember { OkHttpApiClient() }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isSuccess by remember { mutableStateOf(false) }
@@ -154,14 +149,6 @@ fun LoginScreen(
         errorMessage = errorMessage,
         isSuccess = isSuccess,
         successAccountName = successAccountName,
-        serverUrl = serverUrl,
-        onServerUrlSaved = { value ->
-            preferences.edit { putString("custom_server_url", value) }
-            OkHttpApiClient.customBaseUrl = value.ifBlank { null }
-            OkHttpApiClient.activeBaseUrl = null
-            serverUrl = value
-            errorMessage = null
-        },
         onSubmit = { form ->
             if (!isLoading && !isSuccess) {
                 isLoading = true
@@ -232,17 +219,12 @@ fun LoginScreenContent(
     onSubmit: (AuthForm) -> Unit,
     modifier: Modifier = Modifier,
     isSuccess: Boolean = false,
-    successAccountName: String = "",
-    serverUrl: String = "",
-    onServerUrlSaved: (String) -> Unit = {}
+    successAccountName: String = ""
 ) {
     var username by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by rememberSaveable { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
-    var showServerSettings by rememberSaveable { mutableStateOf(false) }
-    var serverUrlInput by rememberSaveable { mutableStateOf(serverUrl) }
-    var serverUrlError by remember { mutableStateOf<String?>(null) }
 
     // Hiệu ứng nhịp thở cho vầng sáng Logo
     val infiniteTransition = rememberInfiniteTransition(label = "pulse_glow")
@@ -514,47 +496,6 @@ fun LoginScreenContent(
                                     )
                                 }
                             }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                TextButton(onClick = { showServerSettings = !showServerSettings }) {
-                    Text("Cấu hình địa chỉ API", color = CyanSecondary)
-                }
-                AnimatedVisibility(visible = showServerSettings) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            value = serverUrlInput,
-                            onValueChange = {
-                                serverUrlInput = it
-                                serverUrlError = null
-                            },
-                            label = { Text("Địa chỉ Backend") },
-                            placeholder = { Text("https://example.run.app") },
-                            supportingText = {
-                                Text(serverUrlError ?: "Để trống để dùng máy chủ mặc định. Không cần nhập /api/v1.")
-                            },
-                            isError = serverUrlError != null,
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Button(
-                            onClick = {
-                                val value = serverUrlInput.trim().trimEnd('/')
-                                if (value.isNotBlank() &&
-                                    (!value.startsWith("https://") && !value.startsWith("http://") || value.contains(' '))) {
-                                    serverUrlError = "Nhập URL bắt đầu bằng https:// hoặc http://"
-                                } else {
-                                    onServerUrlSaved(value)
-                                    showServerSettings = false
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Lưu địa chỉ API")
                         }
                     }
                 }
